@@ -1,0 +1,10 @@
+# OS:-
+.DS_Store
+
+# Editors:-
+.idea
+.vscode
+
+.netrc
+
+api/c.out
