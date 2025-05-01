@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  database:
+    image: postgres:15
+    container_name: url-shortener-db
+    environment:
+      POSTGRES_DB: url-shortener
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - url-shortener-net
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: migrate/migrate:v4.15.2
+    container_name: migrate-url-shortener
+    volumes:
+      - ./data/migrations:/migrations
+    networks:
+      - url-shortener-net
+    command:
+      [
+        "-path", "/migrations",
+        "-database", "postgres://postgres:postgres@database:5432/url-shortener?sslmode=disable",
+        "up",
+      ]
+    depends_on:
+      - database
+
+  server:
+    container_name: url-shortener-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3011:3011"
+    volumes:
+      - .:/app
+    environment:
+      PG_URL: postgres://postgres:postgres@database:5432/url-shortener?sslmode=disable
+      SERVER_ADDR: ":3011"
+      SERVICE_NAME: "URL-SHORTENER"
+    depends_on:
+      - database
+    networks:
+      - url-shortener-net
+
+volumes:
+  pgdata:
+
+networks:
+  url-shortener-net:
+

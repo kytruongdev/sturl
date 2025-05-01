@@ -1,0 +1,13 @@
+output = "internal/models"
+pkgname = "models"
+wipe = true
+add-global-variants = false
+
+[psql]
+  dbname = "url-shortener"
+  host = "localhost"
+  port = 5432
+  user = "postgres"
+  pass = "postgres"
+  sslmode = "disable"
+  blacklist = ["schema_migrations"]
