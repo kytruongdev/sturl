@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/env"
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/env"
 )
 
 // Print prints the banner

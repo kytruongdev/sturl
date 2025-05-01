@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  gateway:
+    container_name: gateway
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3010:3010"
+    volumes:
+      - .:/app
+    environment:
+      SERVER_ADDR: ":3010"
+      SERVICE_NAME: "API-GATEWAY"
+      URL_SHORTENER_URL: "http://server:3011"
+    networks:
+      - sturl-net
+
+networks:
+  sturl-net:
+    external: true
