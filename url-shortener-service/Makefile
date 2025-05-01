@@ -1,4 +1,4 @@
-PROJECT_NAME=sturl
+PROJECT_NAME=url-shortener
 DB_CONTAINER=database
 MIGRATE_CONTAINER=migrate
 SERVER_CONTAINER=server

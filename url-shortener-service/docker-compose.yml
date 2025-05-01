@@ -3,7 +3,7 @@ version: "3.9"
 services:
   database:
     image: postgres:15
-    container_name: url-shortener-db
+    container_name: pg
     environment:
       POSTGRES_DB: url-shortener
       POSTGRES_USER: postgres
@@ -13,7 +13,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
-      - url-shortener-net
+      - sturl-net
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "postgres" ]
       interval: 5s
@@ -26,7 +26,7 @@ services:
     volumes:
       - ./data/migrations:/migrations
     networks:
-      - url-shortener-net
+      - sturl-net
     command:
       [
         "-path", "/migrations",
@@ -37,7 +37,7 @@ services:
       - database
 
   server:
-    container_name: url-shortener-service
+    container_name: server
     build:
       context: .
       dockerfile: Dockerfile
@@ -52,11 +52,12 @@ services:
     depends_on:
       - database
     networks:
-      - url-shortener-net
+      - sturl-net
 
 volumes:
   pgdata:
 
 networks:
-  url-shortener-net:
+  sturl-net:
+    external: true
 
