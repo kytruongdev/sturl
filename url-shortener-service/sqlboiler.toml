@@ -1,5 +1,5 @@
-output = "internal/models"
-pkgname = "models"
+output = "internal/repository/orm"
+pkgname = "orm"
 wipe = true
 add-global-variants = false
 

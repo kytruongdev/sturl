@@ -5,12 +5,12 @@ import (
 	"log"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/cmd/banner"
-	userCtrl "github.com/kytruongdev/sturl/url-shortener-service/internal/controller/user"
+	shortUrlCtrl "github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/handler"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/app"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
-	userRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/user"
+	shortUrlRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 )
 
 func main() {
@@ -29,10 +29,9 @@ func main() {
 
 	ctx := context.Background()
 
-	userRepo := userRepo.New(conn)
-	userCtrl := userCtrl.New(userRepo)
+	shortURLCtrl := shortUrlCtrl.New(shortUrlRepo.New(conn))
 
-	rtr, err := initRouter(ctx, userCtrl)
+	rtr, err := initRouter(ctx, shortURLCtrl)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,10 +46,10 @@ func initAppConfig() (app.Config, error) {
 	return cfg, cfg.Validate()
 }
 
-func initRouter(ctx context.Context, userCtrl userCtrl.Controller) (handler.Router, error) {
+func initRouter(ctx context.Context, shortURLCtrl shortUrlCtrl.Controller) (handler.Router, error) {
 	return handler.Router{
-		Ctx:         ctx,
-		CorsOrigins: []string{"*"},
-		UserCtrl:    userCtrl,
+		Ctx:          ctx,
+		CorsOrigins:  []string{"*"},
+		ShortURLCtrl: shortURLCtrl,
 	}, nil
 }

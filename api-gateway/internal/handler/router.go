@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	
 	"github.com/go-chi/chi/v5"
 )
 
@@ -17,7 +18,6 @@ func (rtr Router) Routes(r chi.Router) {
 func (rtr Router) public(r chi.Router) {
 	const prefix = "/api/public"
 	r.Group(func(r chi.Router) {
-		r.Get(prefix+"/v1/users", ProxyToURLService)
-		r.Post(prefix+"/v1/users", ProxyToURLService)
+		r.Post(prefix+"/v1/shorten", ProxyToURLService)
 	})
 }
