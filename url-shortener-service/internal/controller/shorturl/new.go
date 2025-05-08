@@ -10,6 +10,7 @@ import (
 // Controller provides the specification of the functionality provided by this pkg
 type Controller interface {
 	Shorten(context.Context, ShortenInput) (model.ShortUrl, error)
+	Retrieve(context.Context, string) (model.ShortUrl, error)
 }
 
 // impl is the implementation of the controller

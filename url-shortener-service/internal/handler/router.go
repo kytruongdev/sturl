@@ -23,5 +23,6 @@ func (rtr Router) public(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		shortURLHandler := public.New(rtr.ShortURLCtrl)
 		r.Post(prefix+"/v1/shorten", shortURLHandler.Shorten())
+		r.Get(prefix+"/v1/redirect/{shortcode}", shortURLHandler.Redirect())
 	})
 }
