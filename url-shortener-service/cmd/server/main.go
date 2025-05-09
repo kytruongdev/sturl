@@ -11,6 +11,7 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
 	shortUrlRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -29,7 +30,12 @@ func main() {
 
 	ctx := context.Background()
 
-	shortURLCtrl := shortUrlCtrl.New(shortUrlRepo.New(conn))
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: cfg.ServerCfg.RedisAddr,
+	})
+
+	shortURLRepo := shortUrlRepo.New(conn, redisClient)
+	shortURLCtrl := shortUrlCtrl.New(shortURLRepo)
 
 	rtr, err := initRouter(ctx, shortURLCtrl)
 	if err != nil {

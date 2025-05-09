@@ -36,6 +36,15 @@ services:
     depends_on:
       - database
 
+  redis:
+    image: redis:7
+    container_name: shorten-redis
+    ports:
+      - "6379:6379"
+    restart: always
+    networks:
+      - sturl-net
+
   server:
     container_name: server
     build:
@@ -48,6 +57,7 @@ services:
     environment:
       PG_URL: postgres://postgres:postgres@database:5432/url-shortener?sslmode=disable
       SERVER_ADDR: ":3011"
+      REDIS_ADDR: "redis:6379"
       SERVICE_NAME: "URL-SHORTENER"
     depends_on:
       - database
@@ -60,4 +70,3 @@ volumes:
 networks:
   sturl-net:
     external: true
-

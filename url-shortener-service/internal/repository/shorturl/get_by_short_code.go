@@ -4,14 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/orm"
 	pkgerrors "github.com/pkg/errors"
 )
 
 // GetByShorCode find short_url record by short_code
-func (i impl) GetByShorCode(ctx context.Context, shortCode string) (model.ShortUrl, error) {
+func (i impl) GetByShortCode(ctx context.Context, shortCode string) (model.ShortUrl, error) {
 	o, err := orm.FindShortURL(ctx, i.db, shortCode)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

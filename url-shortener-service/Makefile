@@ -4,6 +4,7 @@ DB_CONTAINER_NAME=pg
 DB_NAME=url-shortener
 MIGRATE_CONTAINER=migrate
 SERVER_CONTAINER=server
+REDIS_CONTAINER=redis
 
 db:
 	docker-compose -p $(PROJECT_NAME) up -d $(DB_CONTAINER)
@@ -11,7 +12,10 @@ db:
 migrate:
 	docker-compose -p $(PROJECT_NAME) run --rm $(MIGRATE_CONTAINER)
 
-setup: db migrate
+redis:
+	docker-compose -p $(PROJECT_NAME) up -d $(REDIS_CONTAINER)
+
+setup: db migrate redis
 
 run:
 	docker-compose -p $(PROJECT_NAME) up --build $(SERVER_CONTAINER)

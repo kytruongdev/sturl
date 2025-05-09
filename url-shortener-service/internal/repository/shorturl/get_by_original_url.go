@@ -15,7 +15,7 @@ func (i impl) GetByOriginalURL(ctx context.Context, originalURL string) (model.S
 	o, err := orm.ShortUrls(orm.ShortURLWhere.OriginalURL.EQ(originalURL)).One(ctx, i.db)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return model.ShortUrl{}, pkgerrors.WithStack(ErrNotFound)
+			return model.ShortUrl{}, ErrNotFound
 		}
 
 		return model.ShortUrl{}, pkgerrors.WithStack(err)

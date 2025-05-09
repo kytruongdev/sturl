@@ -2,6 +2,7 @@ package validator
 
 import (
 	"errors"
+	pkgerrors "github.com/pkg/errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -20,7 +21,7 @@ func ValidateURL(rawURL string) error {
 	}
 
 	if _, err = net.LookupHost(u.Hostname()); err != nil {
-		return err
+		return pkgerrors.WithStack(err)
 	}
 
 	client := &http.Client{
@@ -33,7 +34,7 @@ func ValidateURL(rawURL string) error {
 
 	resp, err := client.Head(rawURL)
 	if err != nil {
-		return err
+		return pkgerrors.WithStack(err)
 	}
 
 	resp.Body.Close()

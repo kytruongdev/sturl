@@ -23,19 +23,23 @@ const (
 // Shorten creates short url
 func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, error) {
 	shortUrl, err := i.shortUrlRepo.GetByOriginalURL(ctx, inp.OriginalURL)
-	if err != nil {
-		if errors.Is(err, shorturl.ErrNotFound) {
-			return i.shortUrlRepo.Insert(ctx, model.ShortUrl{
-				OriginalURL: inp.OriginalURL,
-				Status:      model.ShortUrlStatusActive,
-				ShortCode:   generateShortCode(MaxSlugLength),
-			})
-		}
-
-		return model.ShortUrl{}, err
+	if err == nil {
+		return shortUrl, nil
 	}
 
-	return shortUrl, nil
+	if errors.Is(err, shorturl.ErrNotFound) {
+		m, err := i.shortUrlRepo.Insert(ctx, model.ShortUrl{
+			OriginalURL: inp.OriginalURL,
+			Status:      model.ShortUrlStatusActive,
+			ShortCode:   generateShortCode(MaxSlugLength),
+		})
+
+		i.setToCacheSafe(ctx, m)
+
+		return m, err
+	}
+
+	return model.ShortUrl{}, err
 }
 
 func generateShortCode(n int) string {
