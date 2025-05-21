@@ -5,6 +5,7 @@ DB_NAME=url-shortener
 MIGRATE_CONTAINER=migrate
 SERVER_CONTAINER=server
 REDIS_CONTAINER=redis
+MOCKERY_CONTAINER=mockery
 
 db:
 	docker-compose -p $(PROJECT_NAME) up -d $(DB_CONTAINER)
@@ -25,6 +26,9 @@ down:
 
 generate-orm:
 	sqlboiler psql --no-tests
+
+generate-mock:
+	docker-compose run --rm mockery
 
 reset-db:
 	docker exec -i $(DB_CONTAINER_NAME) psql -U postgres -d $(DB_NAME) -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
