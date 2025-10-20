@@ -2,10 +2,10 @@ package shorturl
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
-	"github.com/redis/go-redis/v9"
+	redis2 "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/redis"
+	"github.com/volatiletech/sqlboiler/boil"
 )
 
 // Repository provides the specification of the functionality provided by this pkg
@@ -19,11 +19,11 @@ type Repository interface {
 
 // impl is the implementation of the repository
 type impl struct {
-	db          *sql.DB
-	redisClient *redis.Client
+	db          boil.ContextExecutor
+	redisClient redis2.RedisClient
 }
 
 // New returns a new instance of the repository
-func New(db *sql.DB, redisClient *redis.Client) Repository {
+func New(db boil.ContextExecutor, redisClient redis2.RedisClient) Repository {
 	return &impl{db: db, redisClient: redisClient}
 }
