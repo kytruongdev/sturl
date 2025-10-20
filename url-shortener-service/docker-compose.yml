@@ -64,6 +64,12 @@ services:
     networks:
       - sturl-net
 
+  mockery:
+    image: vektra/mockery:v2.53.4
+    working_dir: /app
+    volumes:
+      - .:/app
+
 volumes:
   pgdata:
 
