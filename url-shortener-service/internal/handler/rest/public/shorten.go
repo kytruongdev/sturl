@@ -21,10 +21,15 @@ func (h *Handler) Shorten() http.HandlerFunc {
 			return err
 		}
 
+		log.Printf("[Shorten] starting to make shorten url with inp: %+v\n", inp)
+
 		rs, err := h.shortUrlCtrl.Shorten(r.Context(), inp)
 		if err != nil {
+			log.Println("[Shorten] error:", err)
 			return convertControllerError(err)
 		}
+
+		log.Printf("[Shorten] end to shorten url with inp: %+v\n", inp)
 
 		httpserver.RespondJSON(w, rs)
 

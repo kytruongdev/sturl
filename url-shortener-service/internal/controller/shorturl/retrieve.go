@@ -15,18 +15,20 @@ func (i impl) Retrieve(ctx context.Context, shortCode string) (model.ShortUrl, e
 		return cacheData, nil
 	}
 
-	log.Printf("Get cache error for shortcode [%s]: %v\n", shortCode, err)
+	log.Printf("Failed to get shortcode [%s] from cache, err: %v\n", shortCode, err)
 
 	m, err := i.shortUrlRepo.GetByShortCode(ctx, shortCode)
 	if err != nil {
 		return model.ShortUrl{}, err
 	}
 
-	i.setToCacheSafe(ctx, m)
-
 	if m.Status != model.ShortUrlStatusActive {
 		return model.ShortUrl{}, ErrInactiveURL
 	}
+
+	i.setToCacheSafe(ctx, m)
+
+	log.Printf("Successfully set shortcode [%s] to cache\n", shortCode)
 
 	return m, err
 }
@@ -44,7 +46,7 @@ func (i impl) setToCacheSafe(ctx context.Context, m model.ShortUrl) {
 		defer cancel()
 
 		if err := i.shortUrlRepo.SetToCache(newCtx, shortURL); err != nil {
-			log.Printf("Set cache error for shortcode [%s]: %v\n", m.ShortCode, err)
+			log.Printf("Failed to set shortcode [%s] to cache, err: %v\n", m.ShortCode, err)
 		}
 	}(ctx, m)
 }

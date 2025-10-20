@@ -1,6 +1,7 @@
 package public
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -11,6 +12,7 @@ import (
 func (h *Handler) Redirect() http.HandlerFunc {
 	return httpserver.HandlerErr(func(w http.ResponseWriter, r *http.Request) error {
 		shortCode := chi.URLParam(r, "shortcode")
+		log.Printf("[Redirect] starting redirect to short code %s", shortCode)
 		if shortCode == "" {
 			return &httpserver.Error{
 				Status: http.StatusBadRequest,
@@ -21,8 +23,11 @@ func (h *Handler) Redirect() http.HandlerFunc {
 
 		m, err := h.shortUrlCtrl.Retrieve(r.Context(), shortCode)
 		if err != nil {
+			log.Println("[Redirect] error:", err)
 			return convertControllerError(err)
 		}
+
+		log.Printf("[Redirect] end to redirect to original URL %v from shortcode %v\n", m.OriginalURL, shortCode)
 
 		http.Redirect(w, r, m.OriginalURL, http.StatusMovedPermanently)
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // ShortenInput holds input params for creating short validator
@@ -34,12 +35,15 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 			ShortCode:   generateShortCode(MaxSlugLength),
 		})
 
-		i.setToCacheSafe(ctx, m)
+		if err != nil {
+			return model.ShortUrl{}, pkgerrors.Wrap(err, "failed to insert shorten url")
+		}
 
-		return m, err
+		i.setToCacheSafe(ctx, m)
+		return m, nil
 	}
 
-	return model.ShortUrl{}, err
+	return model.ShortUrl{}, pkgerrors.Wrap(err, "failed to get shorten url")
 }
 
 func generateShortCode(n int) string {
