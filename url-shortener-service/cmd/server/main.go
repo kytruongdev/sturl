@@ -10,6 +10,7 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/app"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
+	redisRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/redis"
 	shortUrlRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 	"github.com/redis/go-redis/v9"
 )
@@ -30,9 +31,10 @@ func main() {
 
 	ctx := context.Background()
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: cfg.ServerCfg.RedisAddr,
-	})
+	redisClient, err := initRedis(ctx, cfg.ServerCfg)
+	if err != nil {
+		log.Fatal("[Redis connection error] ", err)
+	}
 
 	shortURLRepo := shortUrlRepo.New(conn, redisClient)
 	shortURLCtrl := shortUrlCtrl.New(shortURLRepo)
@@ -50,6 +52,13 @@ func initAppConfig() (app.Config, error) {
 	cfg := app.NewConfig()
 
 	return cfg, cfg.Validate()
+}
+
+func initRedis(ctx context.Context, cfg httpserver.Config) (redisRepo.RedisClient, error) {
+	return redisRepo.NewRedisClient(ctx, &redis.Options{
+		Addr: cfg.RedisAddr,
+		DB:   0,
+	})
 }
 
 func initRouter(ctx context.Context, shortURLCtrl shortUrlCtrl.Controller) (handler.Router, error) {

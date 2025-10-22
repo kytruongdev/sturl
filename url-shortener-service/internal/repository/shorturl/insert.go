@@ -2,6 +2,9 @@ package shorturl
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"log"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/orm"
@@ -23,6 +26,20 @@ func (i impl) Insert(ctx context.Context, m model.ShortUrl) (model.ShortUrl, err
 
 	m.CreatedAt = o.CreatedAt
 	m.UpdatedAt = o.UpdatedAt
+
+	cacheKey := fmt.Sprintf("%s%s", cacheKeyShortURL, m.ShortCode)
+	b, err := json.Marshal(m)
+
+	if err != nil {
+		log.Printf("[Insert] json marshal error: %v\n", err)
+	}
+
+	rs := i.redisClient.Set(ctx, cacheKey, b, cacheShortURLTTL)
+	if rs != nil && rs.Err() != nil {
+		log.Printf("[Insert] i.redisClient.Set error: %v\n", err)
+	}
+
+	log.Printf("[Insert] i.redisClient.Set success, key: %+v - value: %+v\n", cacheKey, string(b))
 
 	return m, nil
 }

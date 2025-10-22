@@ -12,13 +12,9 @@ import (
 func (h *Handler) Redirect() http.HandlerFunc {
 	return httpserver.HandlerErr(func(w http.ResponseWriter, r *http.Request) error {
 		shortCode := chi.URLParam(r, "shortcode")
-		log.Printf("[Redirect] starting redirect to short code %s", shortCode)
+		log.Printf("[Redirect] starting redirect from short code %s", shortCode)
 		if shortCode == "" {
-			return &httpserver.Error{
-				Status: http.StatusBadRequest,
-				Code:   "empty_short_code",
-				Desc:   "Empty short_code",
-			}
+			return WebErrEmptyShortCode
 		}
 
 		m, err := h.shortUrlCtrl.Retrieve(r.Context(), shortCode)
