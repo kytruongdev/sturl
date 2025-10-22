@@ -70,34 +70,6 @@ func (_m *MockRepository) GetByShortCode(_a0 context.Context, _a1 string) (model
 	return r0, r1
 }
 
-// GetByShortCodeFromCache provides a mock function with given fields: _a0, _a1
-func (_m *MockRepository) GetByShortCodeFromCache(_a0 context.Context, _a1 string) (model.ShortUrl, error) {
-	ret := _m.Called(_a0, _a1)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetByShortCodeFromCache")
-	}
-
-	var r0 model.ShortUrl
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (model.ShortUrl, error)); ok {
-		return rf(_a0, _a1)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) model.ShortUrl); ok {
-		r0 = rf(_a0, _a1)
-	} else {
-		r0 = ret.Get(0).(model.ShortUrl)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(_a0, _a1)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // Insert provides a mock function with given fields: _a0, _a1
 func (_m *MockRepository) Insert(_a0 context.Context, _a1 model.ShortUrl) (model.ShortUrl, error) {
 	ret := _m.Called(_a0, _a1)
@@ -124,24 +96,6 @@ func (_m *MockRepository) Insert(_a0 context.Context, _a1 model.ShortUrl) (model
 	}
 
 	return r0, r1
-}
-
-// SetToCache provides a mock function with given fields: _a0, _a1
-func (_m *MockRepository) SetToCache(_a0 context.Context, _a1 model.ShortUrl) error {
-	ret := _m.Called(_a0, _a1)
-
-	if len(ret) == 0 {
-		panic("no return value specified for SetToCache")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, model.ShortUrl) error); ok {
-		r0 = rf(_a0, _a1)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // NewMockRepository creates a new instance of MockRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

@@ -1,14 +1,16 @@
 package shorturl
 
 import (
+	"time"
+
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/orm"
-	"time"
 )
 
 const (
-	cacheKeyShortURL = "short_url:"
-	cacheShortURLTTL = 24 * time.Hour
+	cacheKeyShortURL    = "short_url:"
+	cacheKeyOriginalURL = "original_url:"
+	cacheShortURLTTL    = 24 * time.Hour
 )
 
 func toShortUrlModel(o orm.ShortURL) model.ShortUrl {
