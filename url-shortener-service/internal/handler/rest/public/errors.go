@@ -8,6 +8,8 @@ import (
 )
 
 var (
+	// WebErrEmptyShortCode means the short code is empty
+	WebErrEmptyShortCode = &httpserver.Error{Status: http.StatusBadRequest, Code: "empty_short_code", Desc: "Empty short_code"}
 	// WebErrEmptyOriginalURL means the original_url is empty
 	WebErrEmptyOriginalURL = &httpserver.Error{Status: http.StatusBadRequest, Code: "empty_original_url", Desc: "URL is empty"}
 	// WebErrInvalidOriginalURL means the original_url is invalid

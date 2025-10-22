@@ -1,4 +1,4 @@
-.PHONY: db migrate redis setup run down generate-orm generate-mock api-test reset-db
+.PHONY: create-network db migrate redis setup run down generate-orm generate-mock api-test reset-db
 
 PROJECT_NAME = url-shortener
 DB_CONTAINER = database
@@ -7,6 +7,9 @@ DB_NAME = url-shortener
 MIGRATE_CONTAINER = migrate
 SERVER_CONTAINER = server
 REDIS_CONTAINER = redis
+
+create-network:
+	docker network create sturl-net || true
 
 db:
 	docker compose -p $(PROJECT_NAME) up -d $(DB_CONTAINER)
@@ -17,7 +20,7 @@ migrate:
 redis:
 	docker compose -p $(PROJECT_NAME) up -d $(REDIS_CONTAINER)
 
-setup: db migrate redis
+setup: create-network db migrate redis
 
 run:
 	docker compose -p $(PROJECT_NAME) up --build $(SERVER_CONTAINER)
