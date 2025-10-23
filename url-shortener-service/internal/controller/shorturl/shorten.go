@@ -3,10 +3,10 @@ package shorturl
 import (
 	"context"
 	"errors"
-	"log"
 	"math/rand"
 	"time"
 
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/logger"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 )
@@ -25,12 +25,15 @@ var generateShortCodeFunc = generateShortCode
 
 // Shorten creates short url
 func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, error) {
+	l := logger.FromContext(ctx)
+	defer logger.TimeTrack(l, time.Now(), "controller.Shorten")
+
 	shortUrl, err := i.shortUrlRepo.GetByOriginalURL(ctx, inp.OriginalURL)
 	if err != nil {
-		log.Printf("[Shorten] shortUrlRepo.GetByOriginalURL err: %+v\n", err)
+		l.Error().Stack().Err(err).Msg("[Shorten] shortUrlRepo.GetByOriginalURL err")
 
 		if errors.Is(err, shorturl.ErrNotFound) {
-			log.Println("[Shorten] shorten URL not found, starting to create")
+			l.Warn().Msg("[Shorten] shorten URL not found, starting to create")
 			m, err := i.shortUrlRepo.Insert(ctx, model.ShortUrl{
 				OriginalURL: inp.OriginalURL,
 				Status:      model.ShortUrlStatusActive,
@@ -38,11 +41,11 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 			})
 
 			if err != nil {
-				log.Printf("[Shorten] shortUrlRepo.Insert err: %+v\n", err)
+				l.Error().Err(err).Msg("[Shorten] shortUrlRepo.Insert err")
 				return model.ShortUrl{}, err
 			}
 
-			log.Println("[Shorten] shorten URL created")
+			l.Info().Msg("[Shorten] shorten URL created")
 
 			return m, nil
 		}
