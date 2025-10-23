@@ -59,6 +59,8 @@ services:
       SERVER_ADDR: ":3011"
       REDIS_ADDR: "redis:6379"
       SERVICE_NAME: "URL-SHORTENER"
+      LOG_LEVEL: "0"
+      APP_ENV: "local"
     depends_on:
       - database
     networks:
