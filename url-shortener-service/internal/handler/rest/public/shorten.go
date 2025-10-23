@@ -8,6 +8,7 @@ import (
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/logger"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/pkg/validator"
 )
@@ -29,20 +30,24 @@ type ShortenResponse struct {
 // Shorten creates short code from original URL
 func (h *Handler) Shorten() http.HandlerFunc {
 	return httpserver.HandlerErr(func(w http.ResponseWriter, r *http.Request) error {
+		ctx := r.Context()
+		l := logger.FromContext(r.Context())
+		defer logger.TimeTrack(l, time.Now(), "handler.Shorten")
+
 		inp, err := mapToShortenInput(r)
 		if err != nil {
 			return err
 		}
 
-		log.Printf("[Shorten] starting to make shorten url with inp: %+v\n", inp)
+		l.Info().Interface("inp", inp).Msg("[Shorten] starting to make shorten url")
 
-		rs, err := h.shortUrlCtrl.Shorten(r.Context(), inp)
+		rs, err := h.shortUrlCtrl.Shorten(ctx, inp)
 		if err != nil {
-			log.Printf("[Shorten] error: %+v\n", err)
+			l.Error().Stack().Err(err).Msg("[Shorten] h.shortUrlCtrl.Shorten err")
 			return convertControllerError(err)
 		}
 
-		log.Printf("[Shorten] end to shorten url with inp: %+v\n", inp)
+		l.Info().Msg("[Shorten] end to shorten url")
 
 		httpserver.RespondJSON(w, toShortenResponse(rs))
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/logger"
 )
 
 func Handler(
@@ -21,6 +22,8 @@ func Handler(
 		AllowCredentials: corsConf.allowCredentials,
 		MaxAge:           corsConf.maxAge, // Maximum value not ignored by any of major browsers
 	}).Handler)
+
+	r.Use(logger.RequestLogger)
 
 	r.Get("/", checkLiveness)
 
