@@ -14,28 +14,31 @@ import (
 	redisRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/redis"
 	shortUrlRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 	"github.com/redis/go-redis/v9"
-	"github.com/rs/zerolog"
 )
 
 func main() {
-	l := initLogger()
-	l.Info().Msg("Starting app initialization")
-
-	ctx := context.Background()
 	cfg := initAppConfig()
 
-	redisClient := initRedis(ctx, cfg)
+	// --- Setup logger
+	rootLog := logger.New(cfg.ServerCfg.ServiceName, cfg.ServerCfg.LogLevel, cfg.ServerCfg.AppEnv)
+	rootCtx := logger.ToContext(context.Background(), rootLog)
+	l := logger.FromContext(rootCtx)
+
+	l.Info().Msg("Starting app initialization")
+
+	// --- Setup dependencies
+	redisClient := initRedis(rootCtx, cfg)
 	conn := initDB(cfg)
 	defer conn.Close()
 
 	shortURLRepo := shortUrlRepo.New(conn, redisClient)
 	shortURLCtrl := shortUrlCtrl.New(shortURLRepo)
-
-	rtr := initRouter(ctx, shortURLCtrl)
+	rtr := initRouter(rootCtx, shortURLCtrl)
 
 	l.Info().Msg("App initialization completed")
 
-	httpserver.Start(httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
+	// --- Start server
+	httpserver.Start(httpserver.Handler(rootCtx, httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
 		cfg.ServerCfg)
 }
 
@@ -46,11 +49,6 @@ func initDB(cfg app.Config) *sql.DB {
 	}
 
 	return conn
-}
-
-func initLogger() *zerolog.Logger {
-	logger.Init()
-	return logger.Get()
 }
 
 func initAppConfig() app.Config {

@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -9,6 +10,7 @@ import (
 )
 
 func Handler(
+	ctx context.Context,
 	corsConf CORSConfig,
 	routerFn func(r chi.Router),
 ) http.Handler {
@@ -23,7 +25,7 @@ func Handler(
 		MaxAge:           corsConf.maxAge, // Maximum value not ignored by any of major browsers
 	}).Handler)
 
-	r.Use(logger.RequestLogger)
+	r.Use(logger.RequestLogger(ctx))
 
 	r.Get("/", checkLiveness)
 

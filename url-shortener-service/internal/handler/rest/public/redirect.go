@@ -2,6 +2,7 @@ package public
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
@@ -11,7 +12,9 @@ import (
 // Redirect redirects to original url
 func (h *Handler) Redirect() http.HandlerFunc {
 	return httpserver.HandlerErr(func(w http.ResponseWriter, r *http.Request) error {
-		l := logger.FromContext(r.Context())
+		ctx := r.Context()
+		l := logger.FromContext(ctx)
+		defer logger.TimeTrack(l, time.Now(), "handler.Redirect")
 
 		shortCode := chi.URLParam(r, "shortcode")
 		l.Info().Str("shortcode", shortCode).Msg("[Redirect] starting redirect from short code")
@@ -20,7 +23,7 @@ func (h *Handler) Redirect() http.HandlerFunc {
 			return WebErrEmptyShortCode
 		}
 
-		m, err := h.shortUrlCtrl.Retrieve(r.Context(), shortCode)
+		m, err := h.shortUrlCtrl.Retrieve(ctx, shortCode)
 		if err != nil {
 			l.Error().Stack().Err(err).Msg("[Redirect] h.shortUrlCtrl.Retrieve err")
 			return convertControllerError(err)

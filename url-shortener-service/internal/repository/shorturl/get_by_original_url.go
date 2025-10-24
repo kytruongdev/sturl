@@ -33,7 +33,6 @@ func (i impl) GetByOriginalURL(ctx context.Context, originalURL string) (model.S
 
 			return cacheResult, nil
 		}
-
 	}
 
 	// step 2: if data has not stored in cache, get it from database
