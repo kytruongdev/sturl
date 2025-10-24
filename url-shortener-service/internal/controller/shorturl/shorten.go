@@ -39,7 +39,6 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 				Status:      model.ShortUrlStatusActive,
 				ShortCode:   generateShortCodeFunc(MaxSlugLength),
 			})
-
 			if err != nil {
 				l.Error().Err(err).Msg("[Shorten] shortUrlRepo.Insert err")
 				return model.ShortUrl{}, err

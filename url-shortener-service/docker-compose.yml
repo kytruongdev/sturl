@@ -58,7 +58,7 @@ services:
       PG_URL: postgres://postgres:postgres@database:5432/url-shortener?sslmode=disable
       SERVER_ADDR: ":3011"
       REDIS_ADDR: "redis:6379"
-      SERVICE_NAME: "URL-SHORTENER"
+      SERVICE_NAME: "url-shortener"
       LOG_LEVEL: "0"
       APP_ENV: "local"
     depends_on:

@@ -31,7 +31,7 @@ type ShortenResponse struct {
 func (h *Handler) Shorten() http.HandlerFunc {
 	return httpserver.HandlerErr(func(w http.ResponseWriter, r *http.Request) error {
 		ctx := r.Context()
-		l := logger.FromContext(r.Context())
+		l := logger.FromContext(ctx)
 		defer logger.TimeTrack(l, time.Now(), "handler.Shorten")
 
 		inp, err := mapToShortenInput(r)
