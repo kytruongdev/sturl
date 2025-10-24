@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rs/xid"
 	"github.com/rs/zerolog"
 )
 
@@ -21,13 +20,11 @@ func RequestLogger(rootCtx context.Context) func(http.Handler) http.Handler {
 			start := time.Now()
 
 			corrID := r.Header.Get("X-Correlation-ID")
-			if corrID == "" {
-				corrID = xid.New().String()
-			}
+			reqID := r.Header.Get("X-Request-ID")
 
 			reqLog := base.With().
 				Str("correlation_id", corrID).
-				Str("request_id", xid.New().String()).
+				Str("request_id", reqID).
 				Str("method", r.Method).
 				Str("path", r.URL.Path).
 				Str("remote_ip", clientIP(r)).
@@ -38,7 +35,7 @@ func RequestLogger(rootCtx context.Context) func(http.Handler) http.Handler {
 			lrw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 			// reflect request id back to client
 			lrw.Header().Set("X-Correlation-ID", corrID)
-			lrw.Header().Set("X-Request-ID", corrID)
+			lrw.Header().Set("X-Request-ID", reqID)
 
 			defer func() {
 				elapsed := time.Since(start)

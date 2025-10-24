@@ -1,13 +1,10 @@
 package handler
 
 import (
-	"context"
-
 	"github.com/go-chi/chi/v5"
 )
 
 type Router struct {
-	Ctx         context.Context
 	CorsOrigins []string
 }
 

@@ -3,6 +3,7 @@ package httpserver
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -24,6 +25,11 @@ func Handler(
 		AllowCredentials: corsConf.allowCredentials,
 		MaxAge:           corsConf.maxAge, // Maximum value not ignored by any of major browsers
 	}).Handler)
+
+	r.Use(NewIdentifier(IdentifierConfig{
+		EnableXCorrelationID: os.Getenv("ENABLE_X_CORRELATION_ID") == "1",
+		EnableXRequestID:     os.Getenv("ENABLE_X_REQUEST_ID") == "1",
+	}).Middleware)
 
 	r.Use(logger.RequestLogger(ctx))
 

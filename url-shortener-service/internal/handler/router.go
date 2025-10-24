@@ -1,15 +1,12 @@
 package handler
 
 import (
-	"context"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/handler/rest/public"
 )
 
 type Router struct {
-	Ctx          context.Context
 	CorsOrigins  []string
 	ShortURLCtrl shorturl.Controller
 }
