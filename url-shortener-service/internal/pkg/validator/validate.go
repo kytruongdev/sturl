@@ -2,11 +2,12 @@ package validator
 
 import (
 	"errors"
-	pkgerrors "github.com/pkg/errors"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 // ValidateURL validate url is valid or not

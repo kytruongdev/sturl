@@ -3,29 +3,34 @@ package main
 import (
 	"context"
 	"log"
-	
-	"github.com/kytruongdev/sturl/api-gateway/cmd/banner"
+
 	"github.com/kytruongdev/sturl/api-gateway/internal/handler"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/app"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/httpserver"
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/logger"
 )
 
 func main() {
-	banner.Print()
-
-	ctx := context.Background()
-
 	cfg, err := initAppConfig()
+
+	rootLog := logger.New(cfg.ServerCfg.ServiceName, cfg.ServerCfg.LogLevel, cfg.ServerCfg.AppEnv)
+	rootCtx := logger.ToContext(context.Background(), rootLog)
+	l := logger.FromContext(rootCtx)
+
+	l.Info().Msg("Starting app initialization")
+
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	rtr, err := initRouter(ctx)
+	rtr, err := initRouter()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	httpserver.Start(httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
+	l.Info().Msg("App initialization completed")
+
+	httpserver.Start(httpserver.Handler(rootCtx, httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
 		cfg.ServerCfg)
 }
 
@@ -35,9 +40,8 @@ func initAppConfig() (app.Config, error) {
 	return cfg, cfg.Validate()
 }
 
-func initRouter(ctx context.Context) (handler.Router, error) {
+func initRouter() (handler.Router, error) {
 	return handler.Router{
-		Ctx:         ctx,
 		CorsOrigins: []string{"*"},
 	}, nil
 }

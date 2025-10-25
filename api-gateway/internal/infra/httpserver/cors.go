@@ -24,7 +24,7 @@ func NewCORSConfig(origins []string, opts ...CORSOption) CORSConfig {
 			"Authorization",
 			"Content-Type",
 		},
-		exposedHeaders:   []string{"Link"},
+		exposedHeaders:   []string{"Link", "X-Request-ID", "X-Correlation-ID"},
 		allowCredentials: true,
 		maxAge:           300,
 	}

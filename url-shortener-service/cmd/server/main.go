@@ -33,7 +33,7 @@ func main() {
 
 	shortURLRepo := shortUrlRepo.New(conn, redisClient)
 	shortURLCtrl := shortUrlCtrl.New(shortURLRepo)
-	rtr := initRouter(rootCtx, shortURLCtrl)
+	rtr := initRouter(shortURLCtrl)
 
 	l.Info().Msg("App initialization completed")
 
@@ -74,9 +74,8 @@ func initRedis(ctx context.Context, cfg app.Config) redisRepo.RedisClient {
 	return redisClient
 }
 
-func initRouter(ctx context.Context, shortURLCtrl shortUrlCtrl.Controller) handler.Router {
+func initRouter(shortURLCtrl shortUrlCtrl.Controller) handler.Router {
 	return handler.Router{
-		Ctx:          ctx,
 		CorsOrigins:  []string{"*"},
 		ShortURLCtrl: shortURLCtrl,
 	}
