@@ -68,6 +68,7 @@ func (req Identifier) Middleware(next http.Handler) http.Handler {
 			}
 
 			r.Header.Set(k, v)
+			w.Header().Set(k, v)
 		}
 
 		next.ServeHTTP(w, r)
