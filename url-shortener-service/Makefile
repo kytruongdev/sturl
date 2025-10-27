@@ -1,4 +1,4 @@
-.PHONY: create-network db migrate redis setup run down generate-orm generate-mock api-test reset-db
+.PHONY: create-network db migrate redis setup run down generate-orm generate-mock test reset-db
 
 PROJECT_NAME = url-shortener
 DB_CONTAINER = database
@@ -38,7 +38,7 @@ generate-mock:
 
 # run single test case:
 # env $(grep -v '^#' ./local.env | egrep -v '^#' | xargs) go test -cover -mod=vendor -v ./internal/repository/shorturl -run TestGetByOriginalURL
-api-test:
+test:
 	env $(shell cat local.env | egrep -v '^#' | xargs) \
 	sh -c 'go test -p 1 -mod=vendor -failfast -timeout 5m ./...' \
 	&& echo "\n[Test okay -- `date`]" || (echo "\n[Test FAILED -- `date`]" && exit 1)

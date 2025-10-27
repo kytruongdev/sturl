@@ -98,8 +98,8 @@ func Register(cfg ServiceConfig) error {
 	return nil
 }
 
-// Get retrieves a proxy by service name.
-func Get(serviceName string) (*httputil.ReverseProxy, bool) {
+// get retrieves a proxy by service name.
+func get(serviceName string) (*httputil.ReverseProxy, bool) {
 	p, ok := registry[serviceName]
 	return p, ok
 }
