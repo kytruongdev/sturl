@@ -13,6 +13,7 @@ services:
     environment:
       SERVER_ADDR: ":3010"
       SERVICE_NAME: "api-gateway"
+      URL_SHORTENER_SERVICE_NAME: "url-shortener"
       URL_SHORTENER_URL: "http://server:3011"
       LOG_LEVEL: "0"
       APP_ENV: "local"

@@ -2,7 +2,6 @@ package public
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -36,6 +35,7 @@ func (h *Handler) Shorten() http.HandlerFunc {
 
 		inp, err := mapToShortenInput(r)
 		if err != nil {
+			l.Error().Stack().Err(err).Msg("[Shorten] mapToShortenInput err")
 			return err
 		}
 
@@ -66,7 +66,6 @@ func mapToShortenInput(r *http.Request) (shorturl.ShortenInput, error) {
 	}
 
 	if err := validator.ValidateURL(req.OriginalURL); err != nil {
-		log.Println("Invalid original_url. Error detail: " + err.Error())
 		return shorturl.ShortenInput{}, WebErrInvalidOriginalURL
 	}
 
