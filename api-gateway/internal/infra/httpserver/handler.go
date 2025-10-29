@@ -7,7 +7,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/kytruongdev/sturl/api-gateway/internal/infra/logger"
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring/logging"
+	"github.com/riandyrn/otelchi"
 )
 
 func Handler(
@@ -22,7 +23,8 @@ func Handler(
 		EnableXRequestID:     os.Getenv("ENABLE_X_REQUEST_ID") == "1",
 	}).Middleware)
 
-	r.Use(logger.RequestLogger(ctx))
+	r.Use(otelchi.Middleware(os.Getenv("SERVICE_NAME")))
+	r.Use(logging.RequestLogger(ctx))
 
 	r.Use(cors.New(cors.Options{
 		AllowedOrigins:   corsConf.allowedOrigins,

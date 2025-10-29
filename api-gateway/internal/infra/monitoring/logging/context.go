@@ -1,4 +1,4 @@
-package logger
+package logging
 
 import (
 	"context"
@@ -10,13 +10,13 @@ type ctxKey string
 
 const loggerKey ctxKey = "app_logger"
 
-// ToContext embeds the logger into a context
+// ToContext embeds the logging into a context
 func ToContext(ctx context.Context, l Logger) context.Context {
 	return context.WithValue(ctx, loggerKey, l)
 }
 
 // FromContext retrieves *zerolog.Logger directly (unwraps .Z())
-// This makes it easy to log directly: logger.FromContext(ctx).Info().Msg("...")
+// This makes it easy to log directly: logging.FromContext(ctx).Info().Msg("...")
 func FromContext(ctx context.Context) *zerolog.Logger {
 	if ctx == nil {
 		return &nop

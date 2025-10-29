@@ -1,4 +1,4 @@
-package logger
+package logging
 
 import (
 	"context"
@@ -9,22 +9,34 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel/trace"
 )
 
-// RequestLogger creates middleware using base logger from rootCtx
+// RequestLogger creates middleware using base logging from rootCtx
 func RequestLogger(rootCtx context.Context) func(http.Handler) http.Handler {
 	base := FromContext(rootCtx)
-
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
 			corrID := r.Header.Get("X-Correlation-ID")
 			reqID := r.Header.Get("X-Request-ID")
+			var traceID, spanID string
+
+			sc := trace.SpanContextFromContext(r.Context())
+			if sc.HasTraceID() {
+				traceID = sc.TraceID().String()
+			}
+
+			if sc.HasSpanID() {
+				spanID = sc.SpanID().String()
+			}
 
 			reqLog := base.With().
 				Str("correlation_id", corrID).
 				Str("request_id", reqID).
+				Str("trace_id", traceID).
+				Str("span_id", spanID).
 				Str("method", r.Method).
 				Str("path", r.URL.Path).
 				Str("remote_ip", clientIP(r)).
