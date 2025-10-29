@@ -1,4 +1,4 @@
-package logger
+package logging
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// RequestLogger creates middleware using base logger from rootCtx
+// RequestLogger creates middleware using base logging from rootCtx
 func RequestLogger(rootCtx context.Context) func(http.Handler) http.Handler {
 	base := FromContext(rootCtx)
 

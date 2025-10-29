@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/logger"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/orm"
 	pkgerrors "github.com/pkg/errors"
@@ -16,8 +16,8 @@ import (
 
 // GetByOriginalURL find short_url record by original_url
 func (i impl) GetByOriginalURL(ctx context.Context, originalURL string) (model.ShortUrl, error) {
-	l := logger.FromContext(ctx)
-	defer logger.TimeTrack(l, time.Now(), "repository.GetByOriginalURL")
+	l := logging.FromContext(ctx)
+	defer logging.TimeTrack(l, time.Now(), "repository.GetByOriginalURL")
 
 	cacheKey := fmt.Sprintf("%s%s", cacheKeyOriginalURL, originalURL)
 	// step 1: prioritize fetching data from cache

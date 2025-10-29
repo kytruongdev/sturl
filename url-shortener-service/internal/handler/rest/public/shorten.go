@@ -7,7 +7,7 @@ import (
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/logger"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/pkg/validator"
 )
@@ -30,8 +30,8 @@ type ShortenResponse struct {
 func (h *Handler) Shorten() http.HandlerFunc {
 	return httpserver.HandlerErr(func(w http.ResponseWriter, r *http.Request) error {
 		ctx := r.Context()
-		l := logger.FromContext(ctx)
-		defer logger.TimeTrack(l, time.Now(), "handler.Shorten")
+		l := logging.FromContext(ctx)
+		defer logging.TimeTrack(l, time.Now(), "handler.Shorten")
 
 		inp, err := mapToShortenInput(r)
 		if err != nil {

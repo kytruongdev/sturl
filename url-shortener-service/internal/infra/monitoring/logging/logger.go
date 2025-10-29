@@ -1,4 +1,4 @@
-package logger
+package logging
 
 import (
 	"io"
@@ -14,16 +14,23 @@ type Logger struct {
 	zLog *zerolog.Logger
 }
 
+// Config stores required fields to init Logger
+type Config struct {
+	ServiceName string
+	LogLevel    string
+	AppEnv      string
+}
+
 // New creates a new zerolog instance with standard fields
-func New(service, level, appEnv string) Logger {
+func New(cfg Config) Logger {
 	var out io.Writer
-	if appEnv == "prod" || appEnv == "qa" {
+	if cfg.AppEnv == "prod" || cfg.AppEnv == "qa" {
 		out = os.Stdout
 	} else {
 		out = zerolog.ConsoleWriter{Out: os.Stdout}
 	}
 
-	lvl, err := zerolog.ParseLevel(level)
+	lvl, err := zerolog.ParseLevel(cfg.LogLevel)
 	if err != nil {
 		lvl = zerolog.InfoLevel
 	}
@@ -35,7 +42,7 @@ func New(service, level, appEnv string) Logger {
 		Level(lvl).
 		With().
 		Timestamp().
-		Str("service", service).
+		Str("service", cfg.ServiceName).
 		Logger()
 
 	return Logger{zLog: &core}
@@ -54,7 +61,7 @@ func (l Logger) Z() *zerolog.Logger {
 // TimeTrack logs how long a scope took (use with defer at call site)
 // Example:
 //
-//	defer logger.TimeTrack(logger.FromContext(ctx), time.Now(), "db.insert")
+//	defer logging.TimeTrack(logging.FromContext(ctx), time.Now(), "db.insert")
 func TimeTrack(l *zerolog.Logger, start time.Time, scope string) {
 	if l == nil {
 		return

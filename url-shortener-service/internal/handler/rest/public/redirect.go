@@ -6,15 +6,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/logger"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
 )
 
 // Redirect redirects to original url
 func (h *Handler) Redirect() http.HandlerFunc {
 	return httpserver.HandlerErr(func(w http.ResponseWriter, r *http.Request) error {
 		ctx := r.Context()
-		l := logger.FromContext(ctx)
-		defer logger.TimeTrack(l, time.Now(), "handler.Redirect")
+		l := logging.FromContext(ctx)
+		defer logging.TimeTrack(l, time.Now(), "handler.Redirect")
 
 		shortCode := chi.URLParam(r, "shortcode")
 		l.Info().Str("shortcode", shortCode).Msg("[Redirect] starting redirect from short code")
