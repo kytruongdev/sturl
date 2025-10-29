@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/logger"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
 )
 
 func Handler(
@@ -22,7 +22,7 @@ func Handler(
 		EnableXRequestID:     os.Getenv("ENABLE_X_REQUEST_ID") == "1",
 	}).Middleware)
 
-	r.Use(logger.RequestLogger(ctx))
+	r.Use(logging.RequestLogger(ctx))
 
 	r.Use(cors.New(cors.Options{
 		AllowedOrigins:   corsConf.allowedOrigins,
