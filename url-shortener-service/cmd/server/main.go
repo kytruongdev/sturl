@@ -10,7 +10,8 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/app"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/logger"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/tracing"
 	redisRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/redis"
 	shortUrlRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 	"github.com/redis/go-redis/v9"
@@ -19,14 +20,21 @@ import (
 func main() {
 	cfg := initAppConfig()
 
-	// --- Setup logger
-	rootLog := logger.New(cfg.ServerCfg.ServiceName, cfg.ServerCfg.LogLevel, cfg.ServerCfg.AppEnv)
-	rootCtx := logger.ToContext(context.Background(), rootLog)
-	l := logger.FromContext(rootCtx)
+	// --- Setup logging
+	rootLog := logging.New(logging.Config{
+		ServiceName: cfg.ServerCfg.ServiceName,
+		LogLevel:    cfg.ServerCfg.LogLevel,
+		AppEnv:      cfg.ServerCfg.AppEnv,
+	})
+	rootCtx := logging.ToContext(context.Background(), rootLog)
+	l := logging.FromContext(rootCtx)
 
 	l.Info().Msg("Starting app initialization")
 
 	// --- Setup dependencies
+	shutdown := initTracer(rootCtx, cfg)
+	defer func() { _ = shutdown(context.Background()) }()
+
 	redisClient := initRedis(rootCtx, cfg)
 	conn := initDB(cfg)
 	defer conn.Close()
@@ -59,6 +67,15 @@ func initAppConfig() app.Config {
 	}
 
 	return cfg
+}
+
+func initTracer(ctx context.Context, cfg app.Config) tracing.ShutdownFn {
+	shutdown, err := tracing.InitTracer(ctx, cfg.ServerCfg.ServiceName)
+	if err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Msg("init tracer error")
+	}
+
+	return shutdown
 }
 
 func initRedis(ctx context.Context, cfg app.Config) redisRepo.RedisClient {

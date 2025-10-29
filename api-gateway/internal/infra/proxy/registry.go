@@ -11,6 +11,7 @@ import (
 
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring/logging"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 )
 
 // ServiceConfig defines per-service proxy settings.
@@ -42,9 +43,7 @@ func Register(cfg ServiceConfig) error {
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
 	// Preserve default director and customize scheme/host
-	orig := proxy.Director
 	proxy.Director = func(req *http.Request) {
-		orig(req)
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.Host = target.Host
@@ -89,11 +88,15 @@ func Register(cfg ServiceConfig) error {
 	}
 
 	// Transport with timeout and connection pool
-	proxy.Transport = otelhttp.NewTransport(&http.Transport{
-		ResponseHeaderTimeout: cfg.ResponseTimeout,
-		IdleConnTimeout:       cfg.IdleConnTimeout,
-		MaxIdleConnsPerHost:   cfg.MaxIdleConns,
-	})
+	proxy.Transport = otelhttp.NewTransport(
+		&http.Transport{
+			ResponseHeaderTimeout: cfg.ResponseTimeout,
+			IdleConnTimeout:       cfg.IdleConnTimeout,
+			MaxIdleConnsPerHost:   cfg.MaxIdleConns,
+		},
+		otelhttp.WithPropagators(otel.GetTextMapPropagator()),
+		otelhttp.WithTracerProvider(otel.GetTracerProvider()),
+	)
 
 	registry[cfg.Name] = proxy
 	return nil
