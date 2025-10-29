@@ -9,7 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kytruongdev/sturl/api-gateway/internal/infra/logger"
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring/logging"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // ServiceConfig defines per-service proxy settings.
@@ -54,7 +55,7 @@ func Register(cfg ServiceConfig) error {
 
 	// Custom error handler with structured log
 	proxy.ErrorHandler = func(rw http.ResponseWriter, r *http.Request, err error) {
-		l := logger.FromContext(r.Context())
+		l := logging.FromContext(r.Context())
 
 		status := http.StatusBadGateway
 		msg := "upstream error"
@@ -88,11 +89,11 @@ func Register(cfg ServiceConfig) error {
 	}
 
 	// Transport with timeout and connection pool
-	proxy.Transport = &http.Transport{
+	proxy.Transport = otelhttp.NewTransport(&http.Transport{
 		ResponseHeaderTimeout: cfg.ResponseTimeout,
 		IdleConnTimeout:       cfg.IdleConnTimeout,
 		MaxIdleConnsPerHost:   cfg.MaxIdleConns,
-	}
+	})
 
 	registry[cfg.Name] = proxy
 	return nil
