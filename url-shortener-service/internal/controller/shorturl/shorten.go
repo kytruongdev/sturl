@@ -9,6 +9,7 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
+	"go.opentelemetry.io/otel"
 )
 
 // ShortenInput holds input params for creating short validator
@@ -25,13 +26,15 @@ var generateShortCodeFunc = generateShortCode
 
 // Shorten creates short url
 func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, error) {
+	tracer := otel.Tracer("url-shortener.controller")
+	ctx, span := tracer.Start(ctx, "Controller.Shorten")
+	defer span.End()
+
 	l := logging.FromContext(ctx)
 	defer logging.TimeTrack(l, time.Now(), "controller.Shorten")
 
 	shortUrl, err := i.shortUrlRepo.GetByOriginalURL(ctx, inp.OriginalURL)
 	if err != nil {
-		l.Error().Stack().Err(err).Msg("[Shorten] shortUrlRepo.GetByOriginalURL err")
-
 		if errors.Is(err, shorturl.ErrNotFound) {
 			l.Warn().Msg("[Shorten] shorten URL not found, starting to create")
 			m, err := i.shortUrlRepo.Insert(ctx, model.ShortUrl{
@@ -40,6 +43,7 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 				ShortCode:   generateShortCodeFunc(MaxSlugLength),
 			})
 			if err != nil {
+				span.RecordError(err)
 				l.Error().Err(err).Msg("[Shorten] shortUrlRepo.Insert err")
 				return model.ShortUrl{}, err
 			}
@@ -48,6 +52,9 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 
 			return m, nil
 		}
+
+		span.RecordError(err)
+		l.Error().Stack().Err(err).Msg("[Shorten] shortUrlRepo.GetByOriginalURL err")
 
 		return model.ShortUrl{}, err
 	}
