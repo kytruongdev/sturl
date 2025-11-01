@@ -2,6 +2,8 @@ package httpserver
 
 import (
 	"net/http"
+
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/common"
 )
 
 // CORSConfig holds the CORS configuration
@@ -24,10 +26,11 @@ func NewCORSConfig(origins []string, opts ...CORSOption) CORSConfig {
 			"Authorization",
 			"Content-Type",
 		},
-		exposedHeaders:   []string{"Link", "X-Request-ID", "X-Correlation-ID"},
+		exposedHeaders:   []string{"Link", common.HeaderCorrelationID, common.HeaderRequestID},
 		allowCredentials: true,
 		maxAge:           300,
 	}
+
 	for _, o := range opts {
 		o(&cfg)
 	}

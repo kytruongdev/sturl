@@ -7,8 +7,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/common"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring/logging"
-	"github.com/riandyrn/otelchi"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func Handler(
@@ -23,7 +24,13 @@ func Handler(
 		EnableXRequestID:     os.Getenv("ENABLE_X_REQUEST_ID") == "1",
 	}).Middleware)
 
-	r.Use(otelchi.Middleware(os.Getenv("SERVICE_NAME")))
+	// Tracing middleware (auto start inbound SERVER span)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			otelhttp.NewHandler(next, common.OpInbound).ServeHTTP(w, r)
+		})
+	})
+
 	r.Use(logging.RequestLogger(ctx))
 
 	r.Use(cors.New(cors.Options{
