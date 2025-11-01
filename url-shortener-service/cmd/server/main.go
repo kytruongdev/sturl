@@ -21,24 +21,27 @@ func main() {
 	cfg := initAppConfig()
 
 	// --- Setup logging
-	rootLog := logging.New(logging.Config{
-		ServiceName: cfg.ServerCfg.ServiceName,
-		LogLevel:    cfg.ServerCfg.LogLevel,
-		AppEnv:      cfg.ServerCfg.AppEnv,
-	})
+	rootLog := logging.New(logging.FromEnv())
 	rootCtx := logging.ToContext(context.Background(), rootLog)
 	l := logging.FromContext(rootCtx)
 
 	l.Info().Msg("Starting app initialization")
 
-	// --- Setup dependencies
-	shutdown := initTracer(rootCtx, cfg)
-	defer func() { _ = shutdown(context.Background()) }()
+	// --- Setup tracing
+	shutdown, err := tracing.Init(rootCtx, tracing.FromEnv())
+	if err != nil {
+		l.Fatal().Err(err).Msg("failed to initialize tracing")
+	}
+	defer shutdown(context.Background())
 
-	redisClient := initRedis(rootCtx, cfg)
+	// --- Setup db
 	conn := initDB(cfg)
 	defer conn.Close()
 
+	// --- Setup redis
+	redisClient := initRedis(rootCtx, cfg)
+
+	// --- Setup router with dependencies
 	shortURLRepo := shortUrlRepo.New(conn, redisClient)
 	shortURLCtrl := shortUrlCtrl.New(shortURLRepo)
 	rtr := initRouter(shortURLCtrl)
@@ -48,15 +51,6 @@ func main() {
 	// --- Start server
 	httpserver.Start(httpserver.Handler(rootCtx, httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
 		cfg.ServerCfg)
-}
-
-func initDB(cfg app.Config) *sql.DB {
-	conn, err := pg.Connect(cfg.PGCfg.PGUrl)
-	if err != nil {
-		log.Fatal("[pg.Connect] err]: ", err)
-	}
-
-	return conn
 }
 
 func initAppConfig() app.Config {
@@ -69,13 +63,13 @@ func initAppConfig() app.Config {
 	return cfg
 }
 
-func initTracer(ctx context.Context, cfg app.Config) tracing.ShutdownFn {
-	shutdown, err := tracing.InitTracer(ctx, cfg.ServerCfg.ServiceName)
+func initDB(cfg app.Config) *sql.DB {
+	conn, err := pg.Connect(cfg.PGCfg.PGUrl)
 	if err != nil {
-		logging.FromContext(ctx).Warn().Err(err).Msg("init tracer error")
+		log.Fatal("[pg.Connect] err]: ", err)
 	}
 
-	return shutdown
+	return conn
 }
 
 func initRedis(ctx context.Context, cfg app.Config) redisRepo.RedisClient {

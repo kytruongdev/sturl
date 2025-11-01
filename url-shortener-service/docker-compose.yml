@@ -62,6 +62,7 @@ services:
       LOG_LEVEL: "0"
       APP_ENV: "local"
       ENABLE_X_REQUEST_ID: "1"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
     depends_on:
       - database
     networks:

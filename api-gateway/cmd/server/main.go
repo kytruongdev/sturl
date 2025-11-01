@@ -18,20 +18,20 @@ func main() {
 	cfg := initAppConfig()
 
 	// --- Setup logging
-	rootLog := logging.New(logging.Config{
-		ServiceName: cfg.ServerCfg.ServiceName,
-		LogLevel:    cfg.ServerCfg.LogLevel,
-		AppEnv:      cfg.ServerCfg.AppEnv,
-	})
+	rootLog := logging.New(logging.FromEnv())
 	rootCtx := logging.ToContext(context.Background(), rootLog)
 	l := logging.FromContext(rootCtx)
 
-	// --- Setup dependencies
+	// --- Setup tracing
+	shutdown, err := tracing.Init(rootCtx, tracing.FromEnv())
+	if err != nil {
+		l.Fatal().Err(err).Msg("failed to initialize tracing")
+	}
+	defer shutdown(context.Background())
+
 	l.Info().Msg("Starting app initialization")
 
-	shutdown := initTracer(rootCtx, cfg)
-	defer func() { _ = shutdown(context.Background()) }()
-
+	// --- Setup proxies
 	registerProxies()
 
 	rtr := initRouter()
@@ -51,21 +51,6 @@ func initAppConfig() app.Config {
 	}
 
 	return cfg
-}
-
-func initRouter() handler.Router {
-	return handler.Router{
-		CorsOrigins: []string{"*"},
-	}
-}
-
-func initTracer(ctx context.Context, cfg app.Config) tracing.ShutdownFn {
-	shutdown, err := tracing.InitTracer(ctx, cfg.ServerCfg.ServiceName)
-	if err != nil {
-		logging.FromContext(ctx).Warn().Err(err).Msg("init tracer error")
-	}
-
-	return shutdown
 }
 
 func registerProxies() {
@@ -94,4 +79,10 @@ func registerProxies() {
 	//if err := proxy.Register(userCfg); err != nil {
 	//	log.Fatalf("register proxy failed: %v", err)
 	//}
+}
+
+func initRouter() handler.Router {
+	return handler.Router{
+		CorsOrigins: []string{"*"},
+	}
 }
