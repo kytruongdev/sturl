@@ -1,4 +1,4 @@
-.PHONY: run down test
+.PHONY: run down test jaeger
 
 PROJECT_NAME=api-gateway
 SERVER_CONTAINER=gateway
@@ -8,6 +8,9 @@ run:
 
 down:
 	docker-compose down
+
+jaeger:
+	docker compose up jaeger -d
 
 # run single test case:
 # env $(grep -v '^#' ./local.env | egrep -v '^#' | xargs) go test -cover -mod=vendor -v ./internal/infra/proxy -run TestRegister

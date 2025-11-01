@@ -16,21 +16,30 @@ type Logger struct {
 
 // Config stores required fields to init Logger
 type Config struct {
-	ServiceName string
-	LogLevel    string
-	AppEnv      string
+	serviceName string
+	logLevel    string
+	appEnv      string
+}
+
+// FromEnv loads config from environment variables
+func FromEnv() Config {
+	return Config{
+		serviceName: os.Getenv("SERVICE_NAME"),
+		logLevel:    os.Getenv("LOG_LEVEL"),
+		appEnv:      os.Getenv("APP_ENV"),
+	}
 }
 
 // New creates a new zerolog instance with standard fields
 func New(cfg Config) Logger {
 	var out io.Writer
-	if cfg.AppEnv == "prod" || cfg.AppEnv == "qa" {
+	if cfg.appEnv == "prod" || cfg.appEnv == "qa" {
 		out = os.Stdout
 	} else {
 		out = zerolog.ConsoleWriter{Out: os.Stdout}
 	}
 
-	lvl, err := zerolog.ParseLevel(cfg.LogLevel)
+	lvl, err := zerolog.ParseLevel(cfg.logLevel)
 	if err != nil {
 		lvl = zerolog.InfoLevel
 	}
@@ -42,7 +51,7 @@ func New(cfg Config) Logger {
 		Level(lvl).
 		With().
 		Timestamp().
-		Str("service", cfg.ServiceName).
+		Str("service", cfg.serviceName).
 		Logger()
 
 	return Logger{zLog: &core}

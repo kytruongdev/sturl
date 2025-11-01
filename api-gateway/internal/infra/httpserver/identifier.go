@@ -3,6 +3,7 @@ package httpserver
 import (
 	"net/http"
 
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/common"
 	"github.com/rs/xid"
 )
 
@@ -43,27 +44,27 @@ func NewIdentifier(config IdentifierConfig) Identifier {
 func (req Identifier) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if req.config.EnableXCorrelationID {
-			corrID := r.Header.Get("X-Correlation-ID")
+			corrID := r.Header.Get(common.HeaderCorrelationID)
 			if corrID == "" {
 				corrID = xid.New().String()
-				r.Header.Set("X-Correlation-ID", corrID)
+				r.Header.Set(common.HeaderCorrelationID, corrID)
 			}
 
-			w.Header().Set("X-Correlation-ID", corrID)
+			w.Header().Set(common.HeaderCorrelationID, corrID)
 		}
 
 		if req.config.EnableXRequestID {
-			reqID := r.Header.Get("X-Request-ID")
+			reqID := r.Header.Get(common.HeaderRequestID)
 			if reqID == "" {
 				reqID = xid.New().String()
-				r.Header.Set("X-Request-ID", reqID)
+				r.Header.Set(common.HeaderRequestID, reqID)
 			}
 
-			w.Header().Set("X-Request-ID", reqID)
+			w.Header().Set(common.HeaderRequestID, reqID)
 		}
 
 		for k, v := range req.config.XIDs {
-			if k == "X-Correlation-ID" || k == "X-Request-ID" {
+			if k == common.HeaderCorrelationID || k == common.HeaderRequestID {
 				continue
 			}
 

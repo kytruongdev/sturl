@@ -9,9 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/common"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring/logging"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 // ServiceConfig defines per-service proxy settings.
@@ -42,20 +44,31 @@ func Register(cfg ServiceConfig) error {
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
-	// Preserve default director and customize scheme/host
+	// Preserve default director but add tracing context propagation
+	origDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
+		// Run original director (sets URL scheme/host/path)
+		origDirector(req)
+
+		// Always ensure correct upstream host
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.Host = target.Host
+
+		// Add prefix if needed
 		if cfg.PathPrefix != "" && !strings.HasPrefix(req.URL.Path, cfg.PathPrefix) {
 			req.URL.Path = cfg.PathPrefix + req.URL.Path
 		}
+
+		// Inject tracing context into downstream headers
+		ctx := req.Context()
+		// Propagate the trace context (traceparent, tracestate)
+		otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
 	}
 
-	// Custom error handler with structured log
+	// Structured error handling
 	proxy.ErrorHandler = func(rw http.ResponseWriter, r *http.Request, err error) {
 		l := logging.FromContext(r.Context())
-
 		status := http.StatusBadGateway
 		msg := "upstream error"
 
@@ -68,8 +81,8 @@ func Register(cfg ServiceConfig) error {
 				Str("service", cfg.Name).
 				Str("target_host", target.Host).
 				Str("path", r.URL.Path).
-				Str("correlation_id", r.Header.Get("X-Correlation-ID")).
-				Str("request_id", r.Header.Get("X-Request-ID")).
+				Str("correlation_id", r.Header.Get(common.HeaderCorrelationID)).
+				Str("request_id", r.Header.Get(common.HeaderRequestID)).
 				Msg("client canceled")
 			return
 		}
@@ -79,24 +92,23 @@ func Register(cfg ServiceConfig) error {
 			Str("service", cfg.Name).
 			Str("target_host", target.Host).
 			Str("path", r.URL.Path).
-			Str("correlation_id", r.Header.Get("X-Correlation-ID")).
-			Str("request_id", r.Header.Get("X-Request-ID")).
+			Str("correlation_id", r.Header.Get(common.HeaderCorrelationID)).
+			Str("request_id", r.Header.Get(common.HeaderRequestID)).
 			Int("status", status).
 			Msg("proxy error")
 
 		http.Error(rw, msg, status)
 	}
 
-	// Transport with timeout and connection pool
-	proxy.Transport = otelhttp.NewTransport(
-		&http.Transport{
-			ResponseHeaderTimeout: cfg.ResponseTimeout,
-			IdleConnTimeout:       cfg.IdleConnTimeout,
-			MaxIdleConnsPerHost:   cfg.MaxIdleConns,
-		},
-		otelhttp.WithPropagators(otel.GetTextMapPropagator()),
-		otelhttp.WithTracerProvider(otel.GetTracerProvider()),
-	)
+	// --- Set transport wrapped with OTel
+	baseTransport := &http.Transport{
+		ResponseHeaderTimeout: cfg.ResponseTimeout,
+		IdleConnTimeout:       cfg.IdleConnTimeout,
+		MaxIdleConnsPerHost:   cfg.MaxIdleConns,
+	}
+
+	// Wrap with otelhttp transport to auto-create client span + inject headers
+	proxy.Transport = otelhttp.NewTransport(baseTransport)
 
 	registry[cfg.Name] = proxy
 	return nil
