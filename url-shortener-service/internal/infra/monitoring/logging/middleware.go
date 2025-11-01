@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/common"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -20,8 +21,8 @@ func RequestLogger(rootCtx context.Context) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
-			corrID := r.Header.Get("X-Correlation-ID")
-			reqID := r.Header.Get("X-Request-ID")
+			corrID := r.Header.Get(common.HeaderCorrelationID)
+			reqID := r.Header.Get(common.HeaderRequestID)
 			var traceID, spanID string
 
 			sc := trace.SpanContextFromContext(r.Context())
@@ -47,8 +48,8 @@ func RequestLogger(rootCtx context.Context) func(http.Handler) http.Handler {
 			ctx := ToContext(r.Context(), Logger{zLog: &reqLog})
 			lrw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 			// reflect request id back to client
-			lrw.Header().Set("X-Correlation-ID", corrID)
-			lrw.Header().Set("X-Request-ID", reqID)
+			lrw.Header().Set(common.HeaderCorrelationID, corrID)
+			lrw.Header().Set(common.HeaderRequestID, reqID)
 
 			defer func() {
 				elapsed := time.Since(start)
@@ -70,7 +71,7 @@ func RequestLogger(rootCtx context.Context) func(http.Handler) http.Handler {
 					e = e.Int("bytes_out", lrw.bytesOut)
 				}
 
-				e.Msg("http_request")
+				e.Msg(common.OpInbound)
 			}()
 
 			next.ServeHTTP(lrw, r.WithContext(ctx))
