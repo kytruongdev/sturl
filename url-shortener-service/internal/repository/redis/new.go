@@ -5,6 +5,7 @@ import (
 	"time"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -23,6 +24,14 @@ type impl struct {
 
 func NewRedisClient(ctx context.Context, cfg *redis.Options) (RedisClient, error) {
 	rbd := redis.NewClient(cfg)
+
+	if err := redisotel.InstrumentTracing(rbd); err != nil {
+		return nil, pkgerrors.WithStack(err)
+	}
+
+	if err := redisotel.InstrumentMetrics(rbd); err != nil {
+		return nil, pkgerrors.WithStack(err)
+	}
 
 	if err := rbd.Ping(context.Background()).Err(); err != nil {
 		return nil, pkgerrors.WithStack(err)
