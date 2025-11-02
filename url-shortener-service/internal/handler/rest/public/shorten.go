@@ -8,9 +8,9 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/tracing"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/pkg/validator"
-	"go.opentelemetry.io/otel"
 )
 
 // ShortenRequest represents shorten request payload
@@ -32,16 +32,15 @@ func (h *Handler) Shorten() http.HandlerFunc {
 	return httpserver.HandlerErr(func(w http.ResponseWriter, r *http.Request) error {
 		ctx := r.Context()
 
-		tracer := otel.Tracer("url-shortener.handler")
-		ctx, span := tracer.Start(ctx, "Handler.Shorten")
-		defer span.End()
+		var err error
+		ctx, span := tracing.StartWithName(ctx, "Handler.Shorten")
+		defer tracing.End(&span, &err)
 
 		l := logging.FromContext(ctx)
 		defer logging.TimeTrack(l, time.Now(), "handler.Shorten")
 
 		inp, err := mapToShortenInput(r)
 		if err != nil {
-			span.RecordError(err)
 			l.Error().Stack().Err(err).Msg("[Shorten] mapToShortenInput err")
 			return err
 		}
@@ -50,7 +49,6 @@ func (h *Handler) Shorten() http.HandlerFunc {
 
 		rs, err := h.shortUrlCtrl.Shorten(ctx, inp)
 		if err != nil {
-			span.RecordError(err)
 			l.Error().Stack().Err(err).Msg("[Shorten] h.shortUrlCtrl.Shorten err")
 			return convertControllerError(err)
 		}
