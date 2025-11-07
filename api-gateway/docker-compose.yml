@@ -19,6 +19,7 @@ services:
       APP_ENV: "local"
       ENABLE_X_CORRELATION_ID: "1"
       OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+      REQUIRES_METADATA: "X-Correlation-ID"
     networks:
       - sturl-net
 

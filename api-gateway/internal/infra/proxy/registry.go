@@ -3,43 +3,65 @@ package proxy
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/common"
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring/logging"
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/transportmeta"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 )
 
-// ServiceConfig defines per-service proxy settings.
-type ServiceConfig struct {
-	Name             string        // service identifier (e.g. "url-shortener-service")
-	BaseURL          string        // upstream base URL
-	ResponseTimeout  time.Duration // timeout waiting for upstream response
-	IdleConnTimeout  time.Duration // timeout for idle connections
-	MaxIdleConns     int           // maximum idle connections per host
-	PathPrefix       string        // optional prefix for upstream paths
-	Retry            int           // reserved: number of retry attempts (future use)
-	LogServiceName   bool          // whether to include "service" field in logs
-	IncludeQueryLogs bool          // whether to log query string
+// Config defines the configuration of an upstream service
+type Config struct {
+	Name             string // service identifier (e.g. "url-shortener-service")
+	BaseURL          string // upstream base URL
+	PathPrefix       string // optional prefix for upstream paths
+	Retry            int    // reserved: number of retry attempts (future use)
+	LogServiceName   bool   // whether to include "service" field in logs
+	IncludeQueryLogs bool   // whether to log query string
 }
 
-var registry = map[string]*httputil.ReverseProxy{}
+var (
+	registry = make(map[string]*httputil.ReverseProxy)
+	regMu    sync.RWMutex
+)
 
-// Register creates and stores a reverse proxy for a given service config.
-func Register(cfg ServiceConfig) error {
+// Register adds a new ReverseProxy instance to the internal registry for later lookup
+func Register(ctx context.Context, cfg Config) error {
+	proxy, err := buildReverseProxy(cfg)
+	if err != nil {
+		return err
+	}
+
+	regMu.Lock()
+	registry[cfg.Name] = proxy
+	regMu.Unlock()
+
+	monitoring.FromContext(ctx).LoggerWithSpan(ctx).Info().
+		Str("service", cfg.Name).
+		Str("target", cfg.BaseURL).
+		Msg("proxy registered successfully")
+
+	return nil
+}
+
+func buildReverseProxy(cfg Config) (*httputil.ReverseProxy, error) {
 	if cfg.Name == "" || cfg.BaseURL == "" {
-		return errors.New("service name or baseURL missing")
+		return nil, errors.New("service name or baseURL missing")
 	}
 
 	target, err := url.Parse(cfg.BaseURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
@@ -68,6 +90,7 @@ func Register(cfg ServiceConfig) error {
 
 	// Structured error handling
 	proxy.ErrorHandler = func(rw http.ResponseWriter, r *http.Request, err error) {
+
 		l := logging.FromContext(r.Context())
 		status := http.StatusBadGateway
 		msg := "upstream error"
@@ -102,20 +125,35 @@ func Register(cfg ServiceConfig) error {
 
 	// --- Set transport wrapped with OTel
 	baseTransport := &http.Transport{
-		ResponseHeaderTimeout: cfg.ResponseTimeout,
-		IdleConnTimeout:       cfg.IdleConnTimeout,
-		MaxIdleConnsPerHost:   cfg.MaxIdleConns,
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ResponseHeaderTimeout: 5 * time.Second,
+		IdleConnTimeout:       30 * time.Second,
+		MaxIdleConnsPerHost:   50,
 	}
 
 	// Wrap with otelhttp transport to auto-create client span + inject headers
-	proxy.Transport = otelhttp.NewTransport(baseTransport)
+	wrapped := transportmeta.WrapTransport(baseTransport)
+	proxy.Transport = otelhttp.NewTransport(wrapped)
 
-	registry[cfg.Name] = proxy
-	return nil
+	return proxy, nil
 }
 
-// get retrieves a proxy by service name.
-func get(serviceName string) (*httputil.ReverseProxy, bool) {
-	p, ok := registry[serviceName]
+// get retrieves the reverse proxy for the given service name.
+// Returns (nil, false) if not found.
+func get(name string) (*httputil.ReverseProxy, bool) {
+	regMu.RLock()
+	p, ok := registry[name]
+	regMu.RUnlock()
 	return p, ok
+}
+
+// clearRegistry resets the global proxy registry (for testing only).
+func clearRegistry() {
+	regMu.Lock()
+	defer regMu.Unlock()
+	registry = make(map[string]*httputil.ReverseProxy)
 }

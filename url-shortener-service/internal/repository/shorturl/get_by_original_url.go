@@ -6,35 +6,29 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/orm"
 	pkgerrors "github.com/pkg/errors"
-	"go.opentelemetry.io/otel"
 )
 
 // GetByOriginalURL find short_url record by original_url
 func (i impl) GetByOriginalURL(ctx context.Context, originalURL string) (model.ShortUrl, error) {
-	tracer := otel.Tracer("url-shortener.repository")
-	ctx, span := tracer.Start(ctx, "Repository.GetByOriginalURL")
-	defer span.End()
-
-	l := logging.FromContext(ctx)
-	defer logging.TimeTrack(l, time.Now(), "repository.GetByOriginalURL")
+	var err error
+	monitor := monitoring.FromContext(ctx)
+	ctx, span, l := monitor.StartSpanWithLog(ctx, "Repository.GetByOriginalURL")
+	defer monitor.EndSpan(&span, &err)
 
 	cacheKey := fmt.Sprintf("%s%s", cacheKeyOriginalURL, originalURL)
 	// step 1: prioritize fetching data from cache
 	val, err := i.redisClient.GetBytes(ctx, cacheKey)
 	if err == nil {
-		span.RecordError(err)
 		l.Info().Str("cacheKey", cacheKey).Msgf("[GetByOriginalURL] i.redisClient.GetBytes - result: %+v\n", string(val))
 
 		if val != nil {
 			cacheResult := model.ShortUrl{}
 			if err = json.Unmarshal(val, &cacheResult); err != nil {
-				span.RecordError(err)
 				return cacheResult, pkgerrors.WithStack(err)
 			}
 
@@ -46,7 +40,6 @@ func (i impl) GetByOriginalURL(ctx context.Context, originalURL string) (model.S
 	l.Warn().Msg("[GetByOriginalURL] i.redisClient.GetBytes not found, starting get in database")
 	o, err := orm.ShortUrls(orm.ShortURLWhere.OriginalURL.EQ(originalURL)).One(ctx, i.db)
 	if err != nil {
-		span.RecordError(err)
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.ShortUrl{}, pkgerrors.WithStack(ErrNotFound)
 		}
@@ -58,13 +51,11 @@ func (i impl) GetByOriginalURL(ctx context.Context, originalURL string) (model.S
 	m := toShortUrlModel(*o)
 	b, err := json.Marshal(m)
 	if err != nil {
-		span.RecordError(err)
 		l.Error().Err(err).Msg("[GetByOriginalURL] json.Marshal err")
 	}
 
 	rs := i.redisClient.Set(ctx, cacheKey, b, cacheShortURLTTL)
 	if rs != nil && rs.Err() != nil {
-		span.RecordError(err)
 		l.Error().Err(rs.Err()).Msg("[GetByOriginalURL] i.redisClient.Set err")
 	}
 

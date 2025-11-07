@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+// Config defines options for the HTTP server such as address and timeouts
 type Config struct {
 	ServerAddr  string
 	RedisAddr   string
@@ -13,7 +14,7 @@ type Config struct {
 	AppEnv      string
 }
 
-// NewConfig returns config
+// NewConfig creates a new HTTP server configuration from environment variables
 func NewConfig() Config {
 	return Config{
 		ServerAddr:  os.Getenv("SERVER_ADDR"),
@@ -24,7 +25,7 @@ func NewConfig() Config {
 	}
 }
 
-// Validate validates app config
+// Validate ensures the HTTP server configuration is valid
 func (c Config) Validate() error {
 	if c.ServerAddr == "" {
 		return errors.New("required env variable 'SERVER_ADDR' not found")

@@ -3,43 +3,39 @@ package main
 import (
 	"context"
 	"log"
-	"time"
 
 	"github.com/kytruongdev/sturl/api-gateway/internal/handler"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/app"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/env"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/httpserver"
-	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring/logging"
-	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring/tracing"
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/proxy"
 )
 
 func main() {
 	cfg := initAppConfig()
 
-	// --- Setup logging
-	rootLog := logging.New(logging.FromEnv())
-	rootCtx := logging.ToContext(context.Background(), rootLog)
-	l := logging.FromContext(rootCtx)
-
-	// --- Setup tracing
-	shutdown, err := tracing.Init(rootCtx, tracing.FromEnv())
+	// --- Setup logging monitoring
+	rootCtx := context.Background()
+	mon, shutdown, err := monitoring.Init(rootCtx, monitoring.ConfigFromEnv())
 	if err != nil {
-		l.Fatal().Err(err).Msg("failed to initialize tracing")
+		log.Fatalf("init monitoring failed: %v", err)
 	}
-	defer shutdown(context.Background())
+	defer func() { _ = shutdown(context.Background()) }()
 
+	l := mon.LoggerWithNonSpan()
 	l.Info().Msg("Starting app initialization")
 
 	// --- Setup proxies
-	registerProxies()
+	registerProxies(rootCtx)
 
+	// --- Setup routers
 	rtr := initRouter()
 
 	l.Info().Msg("App initialization completed")
 
 	// --- Start server
-	httpserver.Start(httpserver.Handler(rootCtx, httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
+	httpserver.Start(httpserver.Handler(mon, httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
 		cfg.ServerCfg)
 }
 
@@ -53,32 +49,15 @@ func initAppConfig() app.Config {
 	return cfg
 }
 
-func registerProxies() {
-	common := proxy.ServiceConfig{
-		ResponseTimeout:  5 * time.Second,
-		IdleConnTimeout:  30 * time.Second,
-		MaxIdleConns:     50,
+func registerProxies(ctx context.Context) {
+	if err := proxy.Register(ctx, proxy.Config{
 		LogServiceName:   true,
 		IncludeQueryLogs: false,
-	}
-
-	shortenerCfg := common
-	shortenerCfg.Name = env.GetAndValidateF("URL_SHORTENER_SERVICE_NAME")
-	shortenerCfg.BaseURL = env.GetAndValidateF("URL_SHORTENER_URL")
-
-	if err := proxy.Register(shortenerCfg); err != nil {
+		Name:             env.GetAndValidateF("URL_SHORTENER_SERVICE_NAME"),
+		BaseURL:          env.GetAndValidateF("URL_SHORTENER_URL"),
+	}); err != nil {
 		log.Fatalf("register proxy failed: %v", err)
 	}
-
-	// The comment-out code block below is an example of how to register another proxy
-	//userCfg := common
-	//userCfg.Name = "user-service"
-	//userCfg.BaseURL = env.GetAndValidateF("URL_USER_SERVICE")
-	//userCfg.ResponseTimeout = 3 * time.Second // everride config example
-
-	//if err := proxy.Register(userCfg); err != nil {
-	//	log.Fatalf("register proxy failed: %v", err)
-	//}
 }
 
 func initRouter() handler.Router {

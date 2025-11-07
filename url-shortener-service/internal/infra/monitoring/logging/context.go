@@ -2,44 +2,28 @@ package logging
 
 import (
 	"context"
+	"os"
 
 	"github.com/rs/zerolog"
-	"go.opentelemetry.io/otel/trace"
 )
 
-type ctxKey string
+type ctxKey int
 
-const loggerKey ctxKey = "app_logger"
+const loggerKey ctxKey = 1
 
-// ToContext keeps the base logger (no span fields baked in)
+// ToContext attaches a Logger to the given context
 func ToContext(ctx context.Context, l Logger) context.Context {
 	return context.WithValue(ctx, loggerKey, l)
 }
 
-// FromContext returns a logger enriched with the CURRENT span from ctx.
-// This ensures nested spans show correct span_id in logs, even if the base
-// logger was created earlier at middleware time.
-func FromContext(ctx context.Context) *zerolog.Logger {
-	var base *zerolog.Logger
-	if ctx == nil {
-		return &nop
+// FromContext extracts a Logger from the provided context
+func FromContext(ctx context.Context) Logger {
+	if v := ctx.Value(loggerKey); v != nil {
+		if l, ok := v.(Logger); ok {
+			return l
+		}
 	}
-	if l, ok := ctx.Value(loggerKey).(Logger); ok && l.Z() != nil {
-		base = l.Z()
-	} else {
-		return &nop
-	}
-
-	sc := trace.SpanContextFromContext(ctx)
-	// if no active span, just return base
-	if !sc.IsValid() {
-		return base
-	}
-
-	// enrich dynamically per call
-	ll := base.With().
-		Str("trace_id", sc.TraceID().String()).
-		Str("span_id", sc.SpanID().String()).
-		Logger()
-	return &ll
+	cw := zerolog.ConsoleWriter{Out: os.Stdout}
+	core := zerolog.New(cw).With().Timestamp().Str("service", "unknown").Logger()
+	return Logger{z: &core}
 }
