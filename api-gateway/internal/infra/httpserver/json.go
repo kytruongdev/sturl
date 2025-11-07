@@ -10,7 +10,7 @@ var (
 	webErrInvalidRequestBody = &Error{Status: http.StatusBadRequest, Code: "invalid_request_body", Desc: "invalid request body"}
 )
 
-// ParseJSON parses request body to json
+// ParseJSON decodes the request body JSON into the provided struct pointer
 func ParseJSON(r io.ReadCloser, result interface{}) *Error {
 	reqBytes, err := io.ReadAll(r)
 	defer r.Close()

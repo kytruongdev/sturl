@@ -6,10 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/tracing"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/orm"
 	pkgerrors "github.com/pkg/errors"
@@ -18,11 +16,9 @@ import (
 // GetByOriginalURL find short_url record by original_url
 func (i impl) GetByOriginalURL(ctx context.Context, originalURL string) (model.ShortUrl, error) {
 	var err error
-	ctx, span := tracing.StartWithName(ctx, "Repository.GetByOriginalURL")
-	defer tracing.End(&span, &err)
-
-	l := logging.FromContext(ctx)
-	defer logging.TimeTrack(l, time.Now(), "repository.GetByOriginalURL")
+	monitor := monitoring.FromContext(ctx)
+	ctx, span, l := monitor.StartSpanWithLog(ctx, "Repository.GetByOriginalURL")
+	defer monitor.EndSpan(&span, &err)
 
 	cacheKey := fmt.Sprintf("%s%s", cacheKeyOriginalURL, originalURL)
 	// step 1: prioritize fetching data from cache

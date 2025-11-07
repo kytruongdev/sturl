@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/tracing"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/orm"
 	pkgerrors "github.com/pkg/errors"
@@ -17,11 +15,9 @@ import (
 // Insert saves data to short_url table
 func (i impl) Insert(ctx context.Context, m model.ShortUrl) (model.ShortUrl, error) {
 	var err error
-	ctx, span := tracing.StartWithName(ctx, "Repository.Insert")
-	defer tracing.End(&span, &err)
-
-	l := logging.FromContext(ctx)
-	defer logging.TimeTrack(l, time.Now(), "repository.Insert")
+	monitor := monitoring.FromContext(ctx)
+	ctx, span, l := monitor.StartSpanWithLog(ctx, "Repository.Insert")
+	defer monitor.EndSpan(&span, &err)
 
 	o := orm.ShortURL{
 		ShortCode:   m.ShortCode,

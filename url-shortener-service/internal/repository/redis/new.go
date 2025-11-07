@@ -22,6 +22,7 @@ type impl struct {
 	redis *redis.Client
 }
 
+// NewRedisClient creates a Redis client with the given address, options, and timeouts
 func NewRedisClient(ctx context.Context, cfg *redis.Options) (RedisClient, error) {
 	rbd := redis.NewClient(cfg)
 

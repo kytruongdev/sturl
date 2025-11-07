@@ -6,7 +6,7 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/common"
 )
 
-// CORSConfig holds the CORS configuration
+// CORSConfig holds the configuration options for Cross-Origin Resource Sharing (CORS)
 type CORSConfig struct {
 	allowedOrigins   []string
 	allowedMethods   []string
@@ -16,7 +16,7 @@ type CORSConfig struct {
 	maxAge           int
 }
 
-// NewCORSConfig initializes and returns a CORSConfig
+// NewCORSConfig returns a CORS middleware instance using the provided configuration
 func NewCORSConfig(origins []string, opts ...CORSOption) CORSConfig {
 	cfg := CORSConfig{
 		allowedOrigins: origins,
@@ -30,6 +30,7 @@ func NewCORSConfig(origins []string, opts ...CORSOption) CORSConfig {
 		allowCredentials: true,
 		maxAge:           300,
 	}
+
 	for _, o := range opts {
 		o(&cfg)
 	}

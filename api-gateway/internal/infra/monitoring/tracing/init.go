@@ -2,75 +2,74 @@ package tracing
 
 import (
 	"context"
-	"log"
 	"os"
+	"strconv"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
-	sdkresource "go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"google.golang.org/grpc"
 )
 
-// Config defines tracing configuration
+// Config holds the configuration options for tracing such as endpoint, sampling ratio, and service metadata
 type Config struct {
-	ServiceName string
-	Env         string
-	Ratio       float64
-	Endpoint    string
+	ServiceName  string
+	Env          string
+	Endpoint     string
+	SamplerRatio float64
 }
 
-// FromEnv loads config from environment variables
+// FromEnv loads tracing configuration values from environment variables
 func FromEnv() Config {
+	r := 1.0
+	if v := os.Getenv("OTEL_TRACES_SAMPLER_RATIO"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			r = f
+		}
+	}
 	return Config{
-		ServiceName: os.Getenv("SERVICE_NAME"),
-		Env:         os.Getenv("APP_ENV"),
-		Ratio:       1.0,
-		Endpoint:    os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		ServiceName:  os.Getenv("SERVICE_NAME"),
+		Env:          os.Getenv("APP_ENV"),
+		Endpoint:     os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		SamplerRatio: r,
 	}
 }
 
-// Init initializes OpenTelemetry TracerProvider (stdout exporter for local)
+// Init sets up and returns an OpenTelemetry TracerProvider using the provided configuration
 func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) {
-	if cfg.Endpoint == "" {
-		cfg.Endpoint = "jaeger:4317" // default for local Jaeger container
-	}
-
-	// 1. Create exporter: print traces to stdout in readable format
-	exp, err := otlptracegrpc.New(ctx,
+	res, _ := resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceName(cfg.ServiceName),
+			attribute.String("environment", cfg.Env),
+		),
+	)
+	exporter, err := otlptracegrpc.New(ctx,
 		otlptracegrpc.WithInsecure(),
 		otlptracegrpc.WithEndpoint(cfg.Endpoint),
 		otlptracegrpc.WithDialOption(grpc.WithBlock()),
 	)
 	if err != nil {
-		return nil, err
+		tp := trace.NewTracerProvider(trace.WithSampler(trace.TraceIDRatioBased(cfg.SamplerRatio)), trace.WithResource(res))
+		otel.SetTracerProvider(tp)
+		return tp.Shutdown, err
 	}
-
-	// 2. Create resource to describe this service
-	res, err := sdkresource.New(ctx,
-		sdkresource.WithAttributes(
-			semconv.ServiceName(cfg.ServiceName),
-			semconv.DeploymentEnvironment(cfg.Env),
+	tp := trace.NewTracerProvider(
+		trace.WithBatcher(exporter),
+		trace.WithResource(res),
+		trace.WithSampler(trace.TraceIDRatioBased(cfg.SamplerRatio)),
+	)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{}, propagation.Baggage{},
 		),
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. Create tracer provider
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(cfg.Ratio))),
-		sdktrace.WithBatcher(exp),
-		sdktrace.WithResource(res),
-	)
-
-	// 4. Register as global provider
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.TraceContext{})
-
-	log.Printf("[Tracing] Initialized tracer for service=%s env=%s\n", cfg.ServiceName, cfg.Env)
 
 	return tp.Shutdown, nil
 }

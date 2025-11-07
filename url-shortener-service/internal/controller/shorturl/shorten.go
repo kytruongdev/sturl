@@ -6,8 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/tracing"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 )
@@ -27,11 +26,9 @@ var generateShortCodeFunc = generateShortCode
 // Shorten creates short url
 func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, error) {
 	var err error
-	ctx, span := tracing.StartWithName(ctx, "Controller.Shorten")
-	defer tracing.End(&span, &err)
-
-	l := logging.FromContext(ctx)
-	defer logging.TimeTrack(l, time.Now(), "controller.Shorten")
+	monitor := monitoring.FromContext(ctx)
+	ctx, span, l := monitor.StartSpanWithLog(ctx, "Controller.Shorten")
+	defer monitor.EndSpan(&span, &err)
 
 	shortUrl, err := i.shortUrlRepo.GetByOriginalURL(ctx, inp.OriginalURL)
 	if err != nil {
