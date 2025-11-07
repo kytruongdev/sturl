@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Start starts server
+// Start launches the HTTP server with graceful shutdown support
 func Start(handler http.Handler, cfg Config) {
 	svr := &http.Server{
 		Addr:    cfg.ServerAddr,

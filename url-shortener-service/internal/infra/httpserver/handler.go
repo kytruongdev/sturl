@@ -1,38 +1,24 @@
 package httpserver
 
 import (
-	"context"
 	"net/http"
-	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/common"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/transportmeta"
 )
 
+// Handler builds the root chi.Router with middlewares and routes
 func Handler(
-	ctx context.Context,
+	mon *monitoring.Monitor,
 	corsConf CORSConfig,
 	routerFn func(r chi.Router),
 ) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(NewIdentifier(IdentifierConfig{
-		EnableXCorrelationID: os.Getenv("ENABLE_X_CORRELATION_ID") == "1",
-		EnableXRequestID:     os.Getenv("ENABLE_X_REQUEST_ID") == "1",
-	}).Middleware)
-
-	// Tracing middleware (auto start inbound spans)
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			otelhttp.NewHandler(next, common.OpInbound).ServeHTTP(w, r)
-		})
-	})
-
-	r.Use(logging.RequestLogger(ctx))
-
+	r.Use(transportmeta.Middleware(transportmeta.LoadConfigFromEnv()))
+	r.Use(mon.Middleware())
 	r.Use(cors.New(cors.Options{
 		AllowedOrigins:   corsConf.allowedOrigins,
 		AllowedMethods:   corsConf.allowedMethods,

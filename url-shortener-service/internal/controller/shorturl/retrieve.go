@@ -2,21 +2,17 @@ package shorturl
 
 import (
 	"context"
-	"time"
 
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/tracing"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 )
 
 // Retrieve retrieves short url by short code
 func (i impl) Retrieve(ctx context.Context, shortCode string) (model.ShortUrl, error) {
 	var err error
-	ctx, span := tracing.StartWithName(ctx, "Controller.Retrieve")
-	defer tracing.End(&span, &err)
-
-	l := logging.FromContext(ctx)
-	defer logging.TimeTrack(l, time.Now(), "controller.Retrieve")
+	monitor := monitoring.FromContext(ctx)
+	ctx, span, l := monitor.StartSpanWithLog(ctx, "Controller.Retrieve")
+	defer monitor.EndSpan(&span, &err)
 
 	m, err := i.shortUrlRepo.GetByShortCode(ctx, shortCode)
 	if err != nil {

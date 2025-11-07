@@ -6,10 +6,12 @@ import (
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/proxy"
 )
 
+// Router wires HTTP routes for the API Gateway, including public endpoints
 type Router struct {
 	CorsOrigins []string
 }
 
+// Routes registers all routes on the provided chi.Router
 func (rtr Router) Routes(r chi.Router) {
 	r.Group(rtr.public)
 }

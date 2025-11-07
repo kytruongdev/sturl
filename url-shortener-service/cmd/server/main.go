@@ -10,29 +10,26 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/app"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/tracing"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	redisRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/redis"
 	shortUrlRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 	"github.com/redis/go-redis/v9"
+	"github.com/volatiletech/sqlboiler/boil"
 )
 
 func main() {
 	cfg := initAppConfig()
 
-	// --- Setup logging
-	rootLog := logging.New(logging.FromEnv())
-	rootCtx := logging.ToContext(context.Background(), rootLog)
-	l := logging.FromContext(rootCtx)
-
-	l.Info().Msg("Starting app initialization")
-
-	// --- Setup tracing
-	shutdown, err := tracing.Init(rootCtx, tracing.FromEnv())
+	// --- Setup logging monitoring
+	rootCtx := context.Background()
+	mon, shutdown, err := monitoring.Init(rootCtx, monitoring.ConfigFromEnv())
 	if err != nil {
-		l.Fatal().Err(err).Msg("failed to initialize tracing")
+		log.Fatalf("init monitoring failed: %v", err)
 	}
-	defer shutdown(context.Background())
+	defer func() { _ = shutdown(context.Background()) }()
+
+	l := mon.LoggerWithNonSpan()
+	l.Info().Msg("Starting app initialization")
 
 	// --- Setup db
 	conn := initDB(cfg)
@@ -41,15 +38,13 @@ func main() {
 	// --- Setup redis
 	redisClient := initRedis(rootCtx, cfg)
 
-	// --- Setup router with dependencies
-	shortURLRepo := shortUrlRepo.New(conn, redisClient)
-	shortURLCtrl := shortUrlCtrl.New(shortURLRepo)
-	rtr := initRouter(shortURLCtrl)
+	// --- Setup routers
+	rtr := initRouter(conn, redisClient)
 
 	l.Info().Msg("App initialization completed")
 
 	// --- Start server
-	httpserver.Start(httpserver.Handler(rootCtx, httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
+	httpserver.Start(httpserver.Handler(mon, httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
 		cfg.ServerCfg)
 }
 
@@ -85,7 +80,10 @@ func initRedis(ctx context.Context, cfg app.Config) redisRepo.RedisClient {
 	return redisClient
 }
 
-func initRouter(shortURLCtrl shortUrlCtrl.Controller) handler.Router {
+func initRouter(conn boil.ContextExecutor, redisClient redisRepo.RedisClient) handler.Router {
+	shortURLRepo := shortUrlRepo.New(conn, redisClient)
+	shortURLCtrl := shortUrlCtrl.New(shortURLRepo)
+
 	return handler.Router{
 		CorsOrigins:  []string{"*"},
 		ShortURLCtrl: shortURLCtrl,

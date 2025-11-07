@@ -6,78 +6,87 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/pkgerrors"
 )
 
-// Logger wraps zerolog.Logger for context-safe usage.
-type Logger struct {
-	zLog *zerolog.Logger
+// Field represents a typed key-value pair used to enrich structured logs
+type Field func(zerolog.Context) zerolog.Context
+
+// String returns a string Field for structured logging
+func String(k, v string) Field { return func(c zerolog.Context) zerolog.Context { return c.Str(k, v) } }
+
+// Int returns an int Field for structured logging.
+func Int(k string, v int) Field {
+	return func(c zerolog.Context) zerolog.Context { return c.Int(k, v) }
 }
 
-// Config stores required fields to init Logger
+// Int64 returns an int64 Field for structured logging
+func Int64(k string, v int64) Field {
+	return func(c zerolog.Context) zerolog.Context { return c.Int64(k, v) }
+}
+
+// Dur returns a duration Field for structured logging
+func Dur(k string, v time.Duration) Field {
+	return func(c zerolog.Context) zerolog.Context { return c.Dur(k, v) }
+}
+
+// Config holds logging options such as level, pretty mode, service name, and environment
 type Config struct {
-	serviceName string
-	logLevel    string
-	appEnv      string
+	ServiceName string
+	LogLevel    string
+	AppEnv      string
 }
 
-// FromEnv loads config from environment variables
+// FromEnv loads logging configuration from environment variables
 func FromEnv() Config {
 	return Config{
-		serviceName: os.Getenv("SERVICE_NAME"),
-		logLevel:    os.Getenv("LOG_LEVEL"),
-		appEnv:      os.Getenv("APP_ENV"),
+		ServiceName: os.Getenv("SERVICE_NAME"),
+		LogLevel:    os.Getenv("LOG_LEVEL"),
+		AppEnv:      os.Getenv("APP_ENV"),
 	}
 }
 
-// New creates a new zerolog instance with standard fields
+// Logger wraps a zerolog.LoggerWithSpan for structured, contextual logging
+type Logger struct{ z *zerolog.Logger }
+
+// New creates a new Logger from the provided Config
 func New(cfg Config) Logger {
 	var out io.Writer
-	if cfg.appEnv == "prod" || cfg.appEnv == "qa" {
+	if cfg.AppEnv == "prod" || cfg.AppEnv == "qa" {
 		out = os.Stdout
 	} else {
 		out = zerolog.ConsoleWriter{Out: os.Stdout}
 	}
-
-	lvl, err := zerolog.ParseLevel(cfg.logLevel)
-	if err != nil {
-		lvl = zerolog.InfoLevel
-	}
-
-	zerolog.TimeFieldFormat = time.RFC3339Nano
-	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
-
-	core := zerolog.New(out).
-		Level(lvl).
-		With().
-		Timestamp().
-		Str("service", cfg.serviceName).
-		Logger()
-
-	return Logger{zLog: &core}
+	lvl, _ := zerolog.ParseLevel(cfg.LogLevel)
+	core := zerolog.New(out).Level(lvl).With().Timestamp().Str("service", cfg.ServiceName).Logger()
+	return Logger{z: &core}
 }
 
-var nop = zerolog.Nop()
-
-// Z returns usable zerolog.Logger (fallback to nop if nil)
-func (l Logger) Z() *zerolog.Logger {
-	if l.zLog == nil {
-		return &nop
+// With creates a new Logger derived from the current one and enriched
+// with the provided structured fields. Each Field function appends
+// a typed key-value pair to the log context.
+func (l Logger) With(fields ...Field) Logger {
+	b := l.z.With()
+	for _, f := range fields {
+		b = f(b)
 	}
-	return l.zLog
+	child := b.Logger()
+	return Logger{z: &child}
 }
 
-// TimeTrack logs how long a scope took (use with defer at call site)
-// Example:
-//
-//	defer logging.TimeTrack(logging.FromContext(ctx), time.Now(), "db.insert")
-func TimeTrack(l *zerolog.Logger, start time.Time, scope string) {
-	if l == nil {
-		return
-	}
+// Info returns a new log event at the Info level
+func (l Logger) Info() *zerolog.Event { return l.z.Info() }
+
+// Error returns a new log event at the Error level
+func (l Logger) Error() *zerolog.Event { return l.z.Error() }
+
+// Debug returns a new log event at the Debug level
+func (l Logger) Debug() *zerolog.Event { return l.z.Debug() }
+
+// Warn returns a new log event at the Warn level
+func (l Logger) Warn() *zerolog.Event { return l.z.Warn() }
+
+// TimeTrack logs the duration elapsed since the provided start time
+func (l Logger) TimeTrack(start time.Time, label string, fields ...Field) {
 	elapsed := time.Since(start)
-	l.Debug().
-		Str("scope", scope).
-		Dur("elapsed_ms", elapsed).
-		Msg("timing")
+	l.With(fields...).z.Info().Dur("elapsed", elapsed).Msg(label)
 }

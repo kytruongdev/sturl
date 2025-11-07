@@ -21,14 +21,14 @@ var (
 	}
 )
 
-// Error represents a handler error.
+// Error represents a structured API error with HTTP status, code, and message
 type Error struct {
 	Status int    `json:"-"`
 	Code   string `json:"error"`
 	Desc   string `json:"error_description"`
 }
 
-// Error satisfies the error interface
+// Error returns the error message string
 func (err Error) Error() string {
 	return fmt.Sprintf("Status: [%d], Code: [%s], Desc: [%s]", err.Status, err.Code, err.Desc)
 }

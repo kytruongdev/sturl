@@ -63,6 +63,7 @@ services:
       APP_ENV: "local"
       ENABLE_X_REQUEST_ID: "1"
       OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+      REQUIRES_METADATA: "X-Request-ID"
     depends_on:
       - database
     networks:
