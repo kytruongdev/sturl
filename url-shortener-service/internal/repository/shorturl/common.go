@@ -8,9 +8,12 @@ import (
 )
 
 const (
-	cacheKeyShortURL    = "short_url:"
+	// cacheKeyShortURL is the Redis key prefix for caching short URLs by short code.
+	cacheKeyShortURL = "short_url:"
+	// cacheKeyOriginalURL is the Redis key prefix for caching short URLs by original URL.
 	cacheKeyOriginalURL = "original_url:"
-	cacheShortURLTTL    = 24 * time.Hour
+	// cacheShortURLTTL is the time-to-live duration for cached short URL entries (24 hours).
+	cacheShortURLTTL = 24 * time.Hour
 )
 
 func toShortUrlModel(o orm.ShortURL) model.ShortUrl {

@@ -2,8 +2,6 @@ package httpserver
 
 import (
 	"net/http"
-
-	"github.com/kytruongdev/sturl/api-gateway/internal/infra/common"
 )
 
 // CORSConfig holds the configuration options for Cross-Origin Resource Sharing (CORS)
@@ -26,7 +24,7 @@ func NewCORSConfig(origins []string, opts ...CORSOption) CORSConfig {
 			"Authorization",
 			"Content-Type",
 		},
-		exposedHeaders:   []string{"Link", common.HeaderCorrelationID, common.HeaderRequestID},
+		exposedHeaders:   []string{"Link", "X-Correlation-ID", "X-Request-ID"},
 		allowCredentials: true,
 		maxAge:           300,
 	}

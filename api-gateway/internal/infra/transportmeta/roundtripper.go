@@ -3,11 +3,11 @@ package transportmeta
 import (
 	"net/http"
 
-	"github.com/kytruongdev/sturl/api-gateway/internal/infra/common"
 	"go.opentelemetry.io/otel/trace"
 )
 
-// WrapTransport injects metadata (Request-ID, Correlation-ID) and trace context into outbound HTTP requests
+// WrapTransport wraps an HTTP RoundTripper to inject metadata and trace context into outbound requests.
+// It injects metadata (Request-ID, Correlation-ID) and trace context into outbound HTTP requests.
 func WrapTransport(next http.RoundTripper) http.RoundTripper {
 	if next == nil {
 		next = http.DefaultTransport
@@ -15,6 +15,7 @@ func WrapTransport(next http.RoundTripper) http.RoundTripper {
 	return roundTripper{next: next}
 }
 
+// roundTripper wraps an http.RoundTripper to inject metadata and trace context into outbound HTTP requests.
 type roundTripper struct{ next http.RoundTripper }
 
 // RoundTrip implements the http.RoundTripper interface.
@@ -29,10 +30,10 @@ func (r roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	meta := FromContext(req.Context())
 
 	if meta.CorrelationID != "" {
-		req.Header.Set(common.HeaderCorrelationID, meta.CorrelationID)
+		req.Header.Set("X-Correlation-ID", meta.CorrelationID)
 	}
 	if meta.RequestID != "" {
-		req.Header.Set(common.HeaderRequestID, meta.RequestID)
+		req.Header.Set("X-Request-ID", meta.RequestID)
 	}
 
 	// optional: attach W3C trace context ids as plain headers (otelhttp will also inject traceparent)

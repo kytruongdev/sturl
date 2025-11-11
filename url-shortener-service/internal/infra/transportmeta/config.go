@@ -5,14 +5,13 @@ import (
 	"strings"
 )
 
-// Config defines the behavior for propagating request metadata such as request IDs
+// Config represents the configuration for request metadata propagation.
 type Config struct {
-	Required []string // e.g. ["X-Correlation-ID","X-Request-ID"]
+	Required []string // List of required metadata header keys, e.g. ["X-Correlation-ID","X-Request-ID"]
 }
 
-// LoadConfigFromEnv loads metadata configuration from the REQUIRES_METADATA
-// environment variable, which is a comma-separated list of required headers.
-func LoadConfigFromEnv() Config {
+// NewConfig creates a new transport metadata configuration from environment variables.
+func NewConfig() Config {
 	raw := os.Getenv("REQUIRES_METADATA")
 	parts := strings.Split(raw, ",")
 	var req []string
@@ -24,4 +23,10 @@ func LoadConfigFromEnv() Config {
 	}
 
 	return Config{Required: req}
+}
+
+// Validate performs validation on the transport metadata configuration.
+// Currently, no validation is required as all metadata headers are optional.
+func (cfg Config) Validate() error {
+	return nil
 }

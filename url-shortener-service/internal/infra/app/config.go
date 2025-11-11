@@ -1,29 +1,34 @@
 package app
 
 import (
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
+	"errors"
+	"os"
 )
 
-// Config holds service-level settings for the API Gateway (service name, port, environment)
+// Config represents application-level configuration for business logic.
+// It contains service identification and environment settings.
 type Config struct {
-	PGCfg     pg.Config
-	ServerCfg httpserver.Config
+	ServiceName string
+	AppEnv      string
 }
 
-// NewConfig loads Config from environment variables and sensible defaults
+// NewConfig creates a new app configuration from environment variables.
 func NewConfig() Config {
 	return Config{
-		PGCfg:     pg.NewConfig(),
-		ServerCfg: httpserver.NewConfig(),
+		ServiceName: os.Getenv("SERVICE_NAME"),
+		AppEnv:      os.Getenv("APP_ENV"),
 	}
 }
 
-// Validate checks that the Config contains valid values (e.g., port within range)
-func (c Config) Validate() error {
-	if err := c.PGCfg.Validate(); err != nil {
-		return err
+// Validate checks that the app configuration contains a valid fields.
+func (cfg Config) Validate() error {
+	if cfg.ServiceName == "" {
+		return errors.New("[app.Config] required env variable 'SERVICE_NAME' not found")
 	}
 
-	return c.ServerCfg.Validate()
+	if cfg.AppEnv == "" {
+		return errors.New("[app.Config] required env variable 'APP_ENV' not found")
+	}
+
+	return nil
 }

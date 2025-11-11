@@ -29,7 +29,7 @@ func TestProxyToService(t *testing.T) {
 		"ok: known service proxied": {
 			serviceName: "ok-service",
 			method:      http.MethodGet,
-			path:        "/api/public/v1/shorten",
+			path:        "/api/public/v1/redirect/123",
 			expectCode:  http.StatusOK,
 			expectBody:  "ok!",
 		},
@@ -69,9 +69,8 @@ func TestProxyToService(t *testing.T) {
 func setupProxyForTesting(t *testing.T, name string, upstream *httptest.Server) {
 	t.Helper()
 	cfg := Config{
-		Name:           name,
-		BaseURL:        upstream.URL,
-		LogServiceName: true,
+		UpstreamServiceName:    name,
+		UpstreamServiceBaseURL: upstream.URL,
 	}
 	err := Register(t.Context(), cfg)
 	require.NoError(t, err, "failed to register proxy for %s", name)

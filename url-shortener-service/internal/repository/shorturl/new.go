@@ -8,7 +8,8 @@ import (
 	"github.com/volatiletech/sqlboiler/boil"
 )
 
-// Repository provides the specification of the functionality provided by this pkg
+// Repository defines the interface for short URL data access operations.
+// It provides the specification of the functionality provided by this package.
 type Repository interface {
 	GetByOriginalURL(context.Context, string) (model.ShortUrl, error)
 	GetByShortCode(context.Context, string) (model.ShortUrl, error)
@@ -21,7 +22,8 @@ type impl struct {
 	redisClient redis2.RedisClient
 }
 
-// New returns a new instance of the repository
+// New creates and returns a new Repository instance with the provided database and Redis client.
+// It returns a new instance of the repository for accessing short URL data.
 func New(db boil.ContextExecutor, redisClient redis2.RedisClient) Repository {
 	return &impl{db: db, redisClient: redisClient}
 }

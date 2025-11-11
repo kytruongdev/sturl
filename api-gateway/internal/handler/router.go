@@ -6,7 +6,8 @@ import (
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/proxy"
 )
 
-// Router wires HTTP routes for the API Gateway, including public endpoints
+// Router represents the HTTP router configuration for the API Gateway.
+// It wires HTTP routes for the API Gateway, including public endpoints.
 type Router struct {
 	CorsOrigins []string
 }

@@ -7,12 +7,13 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 )
 
-// Retrieve retrieves short url by short code
+// Retrieve retrieves the original URL associated with the given short code.
 func (i impl) Retrieve(ctx context.Context, shortCode string) (model.ShortUrl, error) {
 	var err error
-	monitor := monitoring.FromContext(ctx)
-	ctx, span, l := monitor.StartSpanWithLog(ctx, "Controller.Retrieve")
-	defer monitor.EndSpan(&span, &err)
+	ctx, span := monitoring.Start(ctx, "Controller.Retrieve")
+	defer monitoring.End(span, &err)
+
+	l := monitoring.Log(ctx)
 
 	m, err := i.shortUrlRepo.GetByShortCode(ctx, shortCode)
 	if err != nil {

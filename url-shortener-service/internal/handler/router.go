@@ -6,11 +6,13 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/handler/rest/public"
 )
 
+// Router represents the HTTP router configuration for the URL shortener service.
 type Router struct {
 	CorsOrigins  []string
 	ShortURLCtrl shorturl.Controller
 }
 
+// Routes registers all routes on the provided chi.Router.
 func (rtr Router) Routes(r chi.Router) {
 	r.Group(rtr.public)
 }

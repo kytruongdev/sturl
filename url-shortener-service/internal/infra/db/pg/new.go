@@ -9,10 +9,10 @@ import (
 	pkgerrors "github.com/pkg/errors"
 )
 
-// DatabaseName indicates name of applying database. It's `postgres` in this case
+// DatabaseName indicates the name of the database driver.
 const DatabaseName = "postgres"
 
-// Connect connects to database
+// Connect establishes a connection to the PostgreSQL database with OpenTelemetry instrumentation.
 func Connect(dbURL string) (*sql.DB, error) {
 	// register instrumented driver for PostgreSQL
 	driverName, err := otelsql.Register(DatabaseName, otelsql.WithAttributes())

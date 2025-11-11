@@ -13,12 +13,12 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/pkg/validator"
 )
 
-// ShortenRequest represents shorten request payload
+// ShortenRequest represents the HTTP request payload for creating a short URL.
 type ShortenRequest struct {
 	OriginalURL string `json:"original_url"`
 }
 
-// ShortenResponse represents shorten response
+// ShortenResponse represents the HTTP response for a successful URL shortening operation.
 type ShortenResponse struct {
 	ShortCode   string    `json:"short_code"`
 	OriginalURL string    `json:"original_url"`
@@ -27,14 +27,16 @@ type ShortenResponse struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// Shorten creates short code from original URL
+// Shorten creates an HTTP handler function for shortening URLs.
+// It validates the request, creates a short code from the original URL, and returns the result.
 func (h *Handler) Shorten() http.HandlerFunc {
 	return httpserver.HandlerErr(func(w http.ResponseWriter, r *http.Request) error {
-		ctx := r.Context()
 		var err error
-		monitor := monitoring.FromContext(ctx)
-		ctx, span, l := monitor.StartSpanWithLog(ctx, "Handle.Shorten")
-		defer monitor.EndSpan(&span, &err)
+		ctx := r.Context()
+		ctx, span := monitoring.Start(ctx, "Handler.Shorten")
+		defer monitoring.End(span, &err)
+
+		l := monitoring.Log(ctx)
 
 		inp, err := validateAndMapToShortenInput(ctx, r)
 		if err != nil {
@@ -59,7 +61,7 @@ func (h *Handler) Shorten() http.HandlerFunc {
 }
 
 func validateAndMapToShortenInput(ctx context.Context, r *http.Request) (shorturl.ShortenInput, error) {
-	l := monitoring.FromContext(ctx).LoggerWithSpan(ctx)
+	l := monitoring.Log(ctx)
 	defer l.TimeTrack(time.Now(), "[Shorten] validate and map to ShortenInput")
 
 	var req ShortenRequest

@@ -12,12 +12,15 @@ import (
 	"github.com/volatiletech/sqlboiler/boil"
 )
 
-// Insert saves data to short_url table
+// Insert creates a new short URL record in the database and updates the cache.
+// It saves the short URL to PostgreSQL and then caches it in Redis for fast retrieval.
+// Note: Cache update failures are logged but don't cause the operation to fail.
 func (i impl) Insert(ctx context.Context, m model.ShortUrl) (model.ShortUrl, error) {
 	var err error
-	monitor := monitoring.FromContext(ctx)
-	ctx, span, l := monitor.StartSpanWithLog(ctx, "Repository.Insert")
-	defer monitor.EndSpan(&span, &err)
+	ctx, span := monitoring.Start(ctx, "Repository.GetByOriginalURL")
+	defer monitoring.End(span, &err)
+
+	l := monitoring.Log(ctx)
 
 	o := orm.ShortURL{
 		ShortCode:   m.ShortCode,
@@ -32,6 +35,7 @@ func (i impl) Insert(ctx context.Context, m model.ShortUrl) (model.ShortUrl, err
 	m.CreatedAt = o.CreatedAt
 	m.UpdatedAt = o.UpdatedAt
 
+	// Update cache after successful database insert (write-through pattern)
 	cacheKey := fmt.Sprintf("%s%s", cacheKeyShortURL, m.ShortCode)
 	b, err := json.Marshal(m)
 
@@ -39,6 +43,7 @@ func (i impl) Insert(ctx context.Context, m model.ShortUrl) (model.ShortUrl, err
 		l.Error().Err(err).Msg("Insert] json.Marshal err")
 	}
 
+	// Cache update is best-effort - errors are logged but don't fail the operation
 	rs := i.redisClient.Set(ctx, cacheKey, b, cacheShortURLTTL)
 	if rs != nil && rs.Err() != nil {
 		l.Error().Err(rs.Err()).Msg("[Insert] i.redisClient.Set err")

@@ -3,12 +3,10 @@ package transportmeta
 import (
 	"context"
 	"net/http"
-
-	"github.com/kytruongdev/sturl/api-gateway/internal/infra/common"
 )
 
-// Metadata carries request-scoped identifiers used for tracing and logging.
-// These values are typically propagated through HTTP headers
+// Metadata represents request-scoped identifiers used for tracing and logging.
+// It carries request-scoped identifiers that are typically propagated through HTTP headers.
 type Metadata struct {
 	CorrelationID string
 	RequestID     string
@@ -38,8 +36,8 @@ func FromContext(ctx context.Context) Metadata {
 // and request ID headers in the given HTTP request
 func ExtractFromRequest(r *http.Request) Metadata {
 	return Metadata{
-		CorrelationID: r.Header.Get(common.HeaderCorrelationID),
-		RequestID:     r.Header.Get(common.HeaderRequestID),
+		CorrelationID: r.Header.Get("X-Correlation-ID"),
+		RequestID:     r.Header.Get("X-Request-ID"),
 	}
 }
 
@@ -47,9 +45,9 @@ func ExtractFromRequest(r *http.Request) Metadata {
 // If the key does not match a known field, Extra is checked.
 func (m *Metadata) getByKey(key string) string {
 	switch key {
-	case common.HeaderCorrelationID:
+	case "X-Correlation-ID":
 		return m.CorrelationID
-	case common.HeaderRequestID:
+	case "X-Request-ID":
 		return m.RequestID
 	default:
 		return m.Extra[key]
@@ -63,9 +61,9 @@ func (m *Metadata) setByKey(key, val string) {
 		m.Extra = map[string]string{}
 	}
 	switch key {
-	case common.HeaderCorrelationID:
+	case "X-Correlation-ID":
 		m.CorrelationID = val
-	case common.HeaderRequestID:
+	case "X-Request-ID":
 		m.RequestID = val
 	default:
 		m.Extra[key] = val
