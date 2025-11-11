@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
+	"github.com/kytruongdev/sturl/api-gateway/internal/config"
 	"github.com/kytruongdev/sturl/api-gateway/internal/handler"
-	"github.com/kytruongdev/sturl/api-gateway/internal/infra/app"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/env"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/httpserver"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring"
@@ -13,18 +13,20 @@ import (
 )
 
 func main() {
-	cfg := initAppConfig()
+	rootCtx := context.Background()
+
+	l := monitoring.Log(rootCtx)
+	l.Info().Msg("Starting app initialization")
+
+	// --- Load global config
+	globalCfg := loadGlobalConfig()
 
 	// --- Setup logging monitoring
-	rootCtx := context.Background()
-	mon, shutdown, err := monitoring.Init(rootCtx, monitoring.ConfigFromEnv())
+	shutdown, err := initMonitoring(rootCtx, globalCfg.MonitoringCfg)
 	if err != nil {
-		log.Fatalf("init monitoring failed: %v", err)
+		panic(err)
 	}
-	defer func() { _ = shutdown(context.Background()) }()
-
-	l := mon.LoggerWithNonSpan()
-	l.Info().Msg("Starting app initialization")
+	defer shutdown(rootCtx)
 
 	// --- Setup proxies
 	registerProxies(rootCtx)
@@ -35,26 +37,39 @@ func main() {
 	l.Info().Msg("App initialization completed")
 
 	// --- Start server
-	httpserver.Start(httpserver.Handler(mon, httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
-		cfg.ServerCfg)
+	httpserver.Start(httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
+		globalCfg.ServerCfg)
 }
 
-func initAppConfig() app.Config {
-	cfg := app.NewConfig()
+func loadGlobalConfig() config.GlobalConfig {
+	cfg := config.NewGlobalConfig()
 
 	if err := cfg.Validate(); err != nil {
-		log.Fatal("[initAppConfig] err: ", err)
+		log.Fatal("[loadGlobalConfig] err: ", err)
 	}
 
 	return cfg
 }
 
+func initMonitoring(ctx context.Context, cfg monitoring.Config) (func(context.Context) error, error) {
+	shutdown, err := monitoring.Init(ctx, monitoring.Config{
+		ServiceName:     cfg.ServiceName,
+		Env:             cfg.Env,
+		LogPretty:       true,
+		OTLPEndpointURL: cfg.OTLPEndpointURL,
+	})
+
+	if err != nil {
+		log.Fatal("[initMonitoring] err: ", err)
+	}
+
+	return shutdown, nil
+}
+
 func registerProxies(ctx context.Context) {
 	if err := proxy.Register(ctx, proxy.Config{
-		LogServiceName:   true,
-		IncludeQueryLogs: false,
-		Name:             env.GetAndValidateF("URL_SHORTENER_SERVICE_NAME"),
-		BaseURL:          env.GetAndValidateF("URL_SHORTENER_URL"),
+		UpstreamServiceName:    env.GetAndValidateF("URL_SHORTENER_SERVICE_NAME"),
+		UpstreamServiceBaseURL: env.GetAndValidateF("URL_SHORTENER_URL"),
 	}); err != nil {
 		log.Fatalf("register proxy failed: %v", err)
 	}

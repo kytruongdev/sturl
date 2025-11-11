@@ -11,14 +11,14 @@ import (
 
 // Handler builds the root chi.Router with middlewares and routes
 func Handler(
-	mon *monitoring.Monitor,
 	corsConf CORSConfig,
+	transportMetaConf transportmeta.Config,
 	routerFn func(r chi.Router),
 ) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(transportmeta.Middleware(transportmeta.LoadConfigFromEnv()))
-	r.Use(mon.Middleware())
+	r.Use(transportmeta.Middleware(transportMetaConf))
+	r.Use(monitoring.Middleware())
 	r.Use(cors.New(cors.Options{
 		AllowedOrigins:   corsConf.allowedOrigins,
 		AllowedMethods:   corsConf.allowedMethods,
@@ -35,6 +35,8 @@ func Handler(
 	return r
 }
 
+// checkLiveness handles the root path health check endpoint.
+// It returns a simple "ok!" response to indicate the server is running.
 func checkLiveness(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")

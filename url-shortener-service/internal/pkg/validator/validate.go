@@ -10,7 +10,8 @@ import (
 	pkgerrors "github.com/pkg/errors"
 )
 
-// ValidateURL validate url is valid or not
+// ValidateURL validates that a URL is well-formed, accessible, and uses a supported scheme.
+// It performs multiple checks: URL parsing, scheme validation (http/https), DNS resolution, and HTTP HEAD request.
 func ValidateURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {

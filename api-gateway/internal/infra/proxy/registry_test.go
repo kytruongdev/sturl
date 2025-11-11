@@ -8,7 +8,6 @@ import (
 
 func TestRegister(t *testing.T) {
 	t.Parallel()
-	t.Cleanup(clearRegistry)
 
 	tcs := map[string]struct {
 		cfg        Config
@@ -17,23 +16,21 @@ func TestRegister(t *testing.T) {
 	}{
 		"ok: valid config": {
 			cfg: Config{
-				Name:             "shortener",
-				BaseURL:          "http://example.com",
-				LogServiceName:   true,
-				IncludeQueryLogs: false,
+				UpstreamServiceName:    "shortener",
+				UpstreamServiceBaseURL: "http://example.com",
 			},
 			serviceKey: "shortener",
 		},
 		"err: missing name": {
 			cfg: Config{
-				BaseURL: "http://example.com",
+				UpstreamServiceBaseURL: "http://example.com",
 			},
 			expectErr: "service name or baseURL missing",
 		},
 		"err: invalid url": {
 			cfg: Config{
-				Name:    "bad",
-				BaseURL: "://invalid",
+				UpstreamServiceName:    "bad",
+				UpstreamServiceBaseURL: "://invalid",
 			},
 			expectErr: "invalid",
 		},

@@ -2,34 +2,58 @@ package monitoring
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/logging"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring/tracing"
+	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
+	"google.golang.org/grpc"
 )
 
-// Config holds the monitoring configuration (e.g., log level, service name)
-type Config struct {
-	Logging logging.Config
-	Tracing tracing.Config
-}
+var (
+	globalLogger zerolog.Logger // global base logger
+	globalTracer = otel.Tracer("monitoring")
+)
 
-// ConfigFromEnv loads monitoring configuration from environment variables
-func ConfigFromEnv() Config {
-	return Config{
-		Logging: logging.FromEnv(),
-		Tracing: tracing.FromEnv(),
-	}
-}
-
-// Init sets up logging and tracing for the service using the provided configuration
-func Init(ctx context.Context, cfg Config) (*Monitor, func(context.Context) error, error) {
-	base := logging.New(cfg.Logging)
-	ctx = logging.ToContext(ctx, base)
-
-	shutdown, err := tracing.Init(ctx, cfg.Tracing)
+// Init sets up logger, tracer provider and global propagator.
+// It must be called once per service (in main()).
+func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) {
+	// --- Tracer provider setup
+	exporter, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpoint(cfg.OTLPEndpointURL),
+		otlptracegrpc.WithDialOption(grpc.WithBlock()),
+	)
 	if err != nil {
-		noop := func(context.Context) error { return nil }
-		return &Monitor{base: base}, noop, err
+		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
 	}
-	return &Monitor{base: base}, shutdown, nil
+
+	res := resource.NewWithAttributes(
+		semconv.SchemaURL,
+		semconv.ServiceNameKey.String(cfg.ServiceName),
+		semconv.DeploymentEnvironmentKey.String(cfg.Env),
+	)
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(res),
+	)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	// --- Global base logger
+	l := NewLogger(cfg)
+	globalLogger = l.z
+
+	shutdown := func(ctx context.Context) error {
+		return tp.Shutdown(ctx)
+	}
+	return shutdown, nil
 }

@@ -6,7 +6,8 @@ import (
 	"github.com/rs/xid"
 )
 
-// Middleware ensures inbound requests have standard metadata headers and propagates them through the context
+// Middleware creates an HTTP middleware that ensures inbound requests have standard metadata headers.
+// It propagates metadata headers through the context and generates missing required headers automatically.
 func Middleware(cfg Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

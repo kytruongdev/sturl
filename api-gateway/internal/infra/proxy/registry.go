@@ -11,55 +11,55 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kytruongdev/sturl/api-gateway/internal/infra/common"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring"
-	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring/logging"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/transportmeta"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 )
 
-// Config defines the configuration of an upstream service
+// Config represents the configuration for registering an upstream service proxy.
+// It defines the configuration of an upstream service including its name, base URL, and optional path prefix.
 type Config struct {
-	Name             string // service identifier (e.g. "url-shortener-service")
-	BaseURL          string // upstream base URL
-	PathPrefix       string // optional prefix for upstream paths
-	Retry            int    // reserved: number of retry attempts (future use)
-	LogServiceName   bool   // whether to include "service" field in logs
-	IncludeQueryLogs bool   // whether to log query string
+	UpstreamServiceName    string // Name identifier for the upstream service
+	UpstreamServiceBaseURL string // Base URL where the upstream service is hosted
+	PathPrefix             string // Optional path prefix to prepend to requests
 }
 
 var (
-	registry = make(map[string]*httputil.ReverseProxy)
-	regMu    sync.RWMutex
+	// registry stores registered reverse proxy instances keyed by service name.
+	// It uses sync.Map for concurrent-safe access.
+	registry sync.Map
 )
 
 // Register adds a new ReverseProxy instance to the internal registry for later lookup
 func Register(ctx context.Context, cfg Config) error {
 	proxy, err := buildReverseProxy(cfg)
 	if err != nil {
-		return err
+		return pkgerrors.Wrap(err, "error building proxy for "+cfg.UpstreamServiceName)
 	}
 
-	regMu.Lock()
-	registry[cfg.Name] = proxy
-	regMu.Unlock()
+	registry.Store(cfg.UpstreamServiceName, proxy)
 
-	monitoring.FromContext(ctx).LoggerWithSpan(ctx).Info().
-		Str("service", cfg.Name).
-		Str("target", cfg.BaseURL).
+	// svcName, _ := config.Get(ctx, config.CtxKeyServiceName)
+
+	l := monitoring.Log(ctx)
+
+	l.Info().
+		Str("service", "api-gateway").
+		Str("target", cfg.UpstreamServiceBaseURL).
 		Msg("proxy registered successfully")
 
 	return nil
 }
 
 func buildReverseProxy(cfg Config) (*httputil.ReverseProxy, error) {
-	if cfg.Name == "" || cfg.BaseURL == "" {
+	if cfg.UpstreamServiceName == "" || cfg.UpstreamServiceBaseURL == "" {
 		return nil, errors.New("service name or baseURL missing")
 	}
 
-	target, err := url.Parse(cfg.BaseURL)
+	target, err := url.Parse(cfg.UpstreamServiceBaseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +90,7 @@ func buildReverseProxy(cfg Config) (*httputil.ReverseProxy, error) {
 
 	// Structured error handling
 	proxy.ErrorHandler = func(rw http.ResponseWriter, r *http.Request, err error) {
-
-		l := logging.FromContext(r.Context())
+		l := monitoring.Log(r.Context())
 		status := http.StatusBadGateway
 		msg := "upstream error"
 
@@ -99,24 +98,25 @@ func buildReverseProxy(cfg Config) (*httputil.ReverseProxy, error) {
 			status = http.StatusGatewayTimeout
 			msg = "upstream timeout"
 		}
+
 		if errors.Is(err, context.Canceled) {
 			l.Info().
-				Str("service", cfg.Name).
+				Str("service", cfg.UpstreamServiceName).
 				Str("target_host", target.Host).
 				Str("path", r.URL.Path).
-				Str("correlation_id", r.Header.Get(common.HeaderCorrelationID)).
-				Str("request_id", r.Header.Get(common.HeaderRequestID)).
+				Str("correlation_id", r.Header.Get("X-Correlation-ID")).
+				Str("request_id", r.Header.Get("X-Request-ID")).
 				Msg("client canceled")
 			return
 		}
 
 		l.Error().
 			Err(err).
-			Str("service", cfg.Name).
+			Str("service", cfg.UpstreamServiceName).
 			Str("target_host", target.Host).
 			Str("path", r.URL.Path).
-			Str("correlation_id", r.Header.Get(common.HeaderCorrelationID)).
-			Str("request_id", r.Header.Get(common.HeaderRequestID)).
+			Str("correlation_id", r.Header.Get("X-Correlation-ID")).
+			Str("request_id", r.Header.Get("X-Request-ID")).
 			Int("status", status).
 			Msg("proxy error")
 
@@ -124,7 +124,7 @@ func buildReverseProxy(cfg Config) (*httputil.ReverseProxy, error) {
 	}
 
 	// --- Set transport wrapped with OTel
-	baseTransport := &http.Transport{
+	wrapped := transportmeta.WrapTransport(&http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout:   5 * time.Second,
 			KeepAlive: 30 * time.Second,
@@ -133,10 +133,7 @@ func buildReverseProxy(cfg Config) (*httputil.ReverseProxy, error) {
 		ResponseHeaderTimeout: 5 * time.Second,
 		IdleConnTimeout:       30 * time.Second,
 		MaxIdleConnsPerHost:   50,
-	}
-
-	// Wrap with otelhttp transport to auto-create client span + inject headers
-	wrapped := transportmeta.WrapTransport(baseTransport)
+	})
 	proxy.Transport = otelhttp.NewTransport(wrapped)
 
 	return proxy, nil
@@ -145,15 +142,17 @@ func buildReverseProxy(cfg Config) (*httputil.ReverseProxy, error) {
 // get retrieves the reverse proxy for the given service name.
 // Returns (nil, false) if not found.
 func get(name string) (*httputil.ReverseProxy, bool) {
-	regMu.RLock()
-	p, ok := registry[name]
-	regMu.RUnlock()
-	return p, ok
+	v, ok := registry.Load(name)
+	if !ok {
+		return nil, false
+	}
+	return v.(*httputil.ReverseProxy), true
 }
 
 // clearRegistry resets the global proxy registry (for testing only).
 func clearRegistry() {
-	regMu.Lock()
-	defer regMu.Unlock()
-	registry = make(map[string]*httputil.ReverseProxy)
+	registry.Range(func(k, _ any) bool {
+		registry.Delete(k)
+		return true
+	})
 }

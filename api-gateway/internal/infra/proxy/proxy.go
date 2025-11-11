@@ -11,6 +11,7 @@ func ProxyToService(serviceName string) http.HandlerFunc {
 			p.ServeHTTP(w, r)
 			return
 		}
+
 		http.Error(w, "unknown service", http.StatusBadGateway)
 	}
 }

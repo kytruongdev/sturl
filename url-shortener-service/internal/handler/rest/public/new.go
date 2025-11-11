@@ -4,12 +4,12 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
 )
 
-// Handler is the web handler for this pkg
+// Handler represents the HTTP handler for public short URL endpoints.
 type Handler struct {
 	shortUrlCtrl shorturl.Controller
 }
 
-// New instantiates a new Handler and returns it
+// New creates and returns a new Handler instance with the provided controller.
 func New(shortUrlCtrl shorturl.Controller) *Handler {
 	return &Handler{shortUrlCtrl: shortUrlCtrl}
 }

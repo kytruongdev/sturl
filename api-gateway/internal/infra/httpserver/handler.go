@@ -11,14 +11,13 @@ import (
 
 // Handler builds the root chi.Router with middlewares and routes
 func Handler(
-	mon *monitoring.Monitor,
 	corsConf CORSConfig,
 	routerFn func(r chi.Router),
 ) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(transportmeta.Middleware(transportmeta.LoadConfigFromEnv()))
-	r.Use(mon.Middleware())
+	r.Use(transportmeta.Middleware(transportmeta.NewConfig()))
+	r.Use(monitoring.Middleware())
 	r.Use(cors.New(cors.Options{
 		AllowedOrigins:   corsConf.allowedOrigins,
 		AllowedMethods:   corsConf.allowedMethods,
