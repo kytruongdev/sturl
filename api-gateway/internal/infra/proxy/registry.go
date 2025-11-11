@@ -124,16 +124,7 @@ func buildReverseProxy(cfg Config) (*httputil.ReverseProxy, error) {
 	}
 
 	// --- Set transport wrapped with OTel
-	wrapped := transportmeta.WrapTransport(&http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   5 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		TLSHandshakeTimeout:   5 * time.Second,
-		ResponseHeaderTimeout: 5 * time.Second,
-		IdleConnTimeout:       30 * time.Second,
-		MaxIdleConnsPerHost:   50,
-	})
+	wrapped := transportmeta.WrapTransport(initTransportFunc())
 	proxy.Transport = otelhttp.NewTransport(wrapped)
 
 	return proxy, nil
@@ -155,4 +146,30 @@ func clearRegistry() {
 		registry.Delete(k)
 		return true
 	})
+}
+
+const (
+	dialerKeepAlive       = 30 * time.Second
+	dialerTimeout         = 5 * time.Second
+	tlsHandshakeTimeout   = 5 * time.Second
+	responseHeaderTimeout = 5 * time.Second
+	idleConnTimeout       = 30 * time.Second
+	maxIdleConnsPerHost   = 50
+)
+
+var (
+	initTransportFunc = initTransport
+)
+
+func initTransport() *http.Transport {
+	return &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   dialerTimeout,
+			KeepAlive: dialerKeepAlive,
+		}).DialContext,
+		TLSHandshakeTimeout:   tlsHandshakeTimeout,
+		ResponseHeaderTimeout: responseHeaderTimeout,
+		IdleConnTimeout:       idleConnTimeout,
+		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
+	}
 }
