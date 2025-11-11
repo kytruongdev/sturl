@@ -45,14 +45,6 @@ func TestShorten(t *testing.T) {
 				Status:      model.ShortUrlStatusActive,
 			},
 		},
-		"fail - get by original url return error": {
-			mockGetByOriginalURLInput: "http://google.com",
-			inp: ShortenInput{
-				OriginalURL: "http://google.com",
-			},
-			mockGetByOriginalURLErr: errors.New("some error"),
-			wantErr:                 errors.New("some error"),
-		},
 		"success - shortened url": {
 			mockGetByOriginalURLInput: "http://google.com",
 			inp: ShortenInput{
@@ -79,6 +71,31 @@ func TestShorten(t *testing.T) {
 				OriginalURL: "http://google.com",
 				Status:      model.ShortUrlStatusActive,
 			},
+		},
+		"fail - get by original url return error": {
+			mockGetByOriginalURLInput: "http://google.com",
+			inp: ShortenInput{
+				OriginalURL: "http://google.com",
+			},
+			mockGetByOriginalURLErr: errors.New("some error"),
+			wantErr:                 errors.New("some error"),
+		},
+		"fail - duplicated short code": {
+			mockGetByOriginalURLInput: "http://google.com",
+			inp: ShortenInput{
+				OriginalURL: "http://google.com",
+			},
+			mockGetByOriginalURLErr: shorturl.ErrNotFound,
+			mockGenShortCode: func(originalURL int) string {
+				return "gg123"
+			},
+			mockInsertInput: model.ShortUrl{
+				ShortCode:   "gg123",
+				OriginalURL: "http://google.com",
+				Status:      model.ShortUrlStatusActive,
+			},
+			mockInsertErr: errors.New("duplicated short code"),
+			wantErr:       errors.New("duplicated short code"),
 		},
 	}
 
