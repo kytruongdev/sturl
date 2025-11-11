@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Start starts server
+// Start launches the HTTP server with graceful shutdown support
 func Start(handler http.Handler, cfg Config) {
 	svr := &http.Server{
 		Addr:    cfg.ServerAddr,
@@ -29,6 +29,8 @@ func Start(handler http.Handler, cfg Config) {
 	log.Println(fmt.Sprint(<-ch))
 }
 
+// stop gracefully shuts down the HTTP server with a 5-second timeout.
+// It attempts to close all active connections and exits the process if shutdown fails.
 func stop(svr *http.Server) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

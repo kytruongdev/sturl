@@ -1,6 +1,8 @@
 package proxy
 
 import (
+	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,32 +15,27 @@ func TestRegister(t *testing.T) {
 	t.Parallel()
 
 	tcs := map[string]struct {
-		cfg        ServiceConfig
+		cfg        Config
 		expectErr  string
 		serviceKey string
 	}{
 		"ok: valid config": {
-			cfg: ServiceConfig{
-				Name:             "shortener",
-				BaseURL:          "http://example.com",
-				ResponseTimeout:  10 * time.Second,
-				IdleConnTimeout:  10 * time.Second,
-				MaxIdleConns:     10,
-				LogServiceName:   true,
-				IncludeQueryLogs: false,
+			cfg: Config{
+				UpstreamServiceName:    "shortener",
+				UpstreamServiceBaseURL: "http://example.com",
 			},
 			serviceKey: "shortener",
 		},
 		"err: missing name": {
-			cfg: ServiceConfig{
-				BaseURL: "http://example.com",
+			cfg: Config{
+				UpstreamServiceBaseURL: "http://example.com",
 			},
 			expectErr: "service name or baseURL missing",
 		},
 		"err: invalid url": {
-			cfg: ServiceConfig{
-				Name:    "bad",
-				BaseURL: "://invalid",
+			cfg: Config{
+				UpstreamServiceName:    "bad",
+				UpstreamServiceBaseURL: "://invalid",
 			},
 			expectErr: "invalid",
 		},
@@ -46,7 +43,7 @@ func TestRegister(t *testing.T) {
 
 	for name, tt := range tcs {
 		t.Run(name, func(t *testing.T) {
-			err := Register(tt.cfg)
+			err := Register(t.Context(), tt.cfg)
 			if tt.expectErr == "" {
 				require.NoError(t, err, "unexpected error for case %s", name)
 				_, ok := get(tt.serviceKey)
@@ -61,37 +58,51 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegister_ErrorHandlerTimeout(t *testing.T) {
-	t.Parallel()
+	t.Run("err: timeout", func(t *testing.T) {
+		slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(200 * time.Millisecond) // simulate slow upstream
+		}))
 
-	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(200 * time.Millisecond) // simulate slow upstream
-	}))
-	defer slow.Close()
+		defer slow.Close()
 
-	cfg := ServiceConfig{
-		Name:            "slow-service",
-		BaseURL:         slow.URL,
-		ResponseTimeout: 50 * time.Millisecond, // intentionally shorter to trigger timeout
-		IdleConnTimeout: 100 * time.Millisecond,
-		MaxIdleConns:    5,
-		LogServiceName:  true,
-	}
+		initTransportFunc = func() *http.Transport {
+			return &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout:   5 * time.Millisecond,
+					KeepAlive: 30 * time.Millisecond,
+				}).DialContext,
+				TLSHandshakeTimeout:   5 * time.Millisecond,
+				ResponseHeaderTimeout: 5 * time.Millisecond,
+				IdleConnTimeout:       30 * time.Millisecond,
+				MaxIdleConnsPerHost:   50,
+			}
+		}
 
-	err := Register(cfg)
-	require.NoError(t, err, "failed to register slow-service")
+		defer func() {
+			initTransportFunc = initTransport
+		}()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/public/test", nil)
-	rec := httptest.NewRecorder()
+		cfg := Config{
+			UpstreamServiceName:    "shortener",
+			UpstreamServiceBaseURL: "http://example.com",
+		}
 
-	h := ProxyToService("slow-service")
-	h.ServeHTTP(rec, req)
+		err := Register(context.Background(), cfg)
+		require.NoError(t, err, "failed to register slow-service")
 
-	res := rec.Result()
-	defer res.Body.Close()
+		req := httptest.NewRequest(http.MethodGet, "/api/public/test", nil)
+		rec := httptest.NewRecorder()
 
-	require.Contains(t,
-		[]int{http.StatusBadGateway, http.StatusGatewayTimeout},
-		res.StatusCode,
-		"expected 502 or 504 but got %d", res.StatusCode,
-	)
+		h := ProxyToService("slow-service")
+		h.ServeHTTP(rec, req)
+
+		res := rec.Result()
+		defer res.Body.Close()
+
+		require.Contains(t,
+			[]int{http.StatusBadGateway, http.StatusGatewayTimeout},
+			res.StatusCode,
+			"expected 502 or 504 but got %d", res.StatusCode,
+		)
+	})
 }

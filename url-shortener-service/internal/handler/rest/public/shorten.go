@@ -1,23 +1,24 @@
 package public
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/logger"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/pkg/validator"
 )
 
-// ShortenRequest represents shorten request payload
+// ShortenRequest represents the HTTP request payload for creating a short URL.
 type ShortenRequest struct {
 	OriginalURL string `json:"original_url"`
 }
 
-// ShortenResponse represents shorten response
+// ShortenResponse represents the HTTP response for a successful URL shortening operation.
 type ShortenResponse struct {
 	ShortCode   string    `json:"short_code"`
 	OriginalURL string    `json:"original_url"`
@@ -26,14 +27,18 @@ type ShortenResponse struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// Shorten creates short code from original URL
+// Shorten creates an HTTP handler function for shortening URLs.
+// It validates the request, creates a short code from the original URL, and returns the result.
 func (h *Handler) Shorten() http.HandlerFunc {
 	return httpserver.HandlerErr(func(w http.ResponseWriter, r *http.Request) error {
+		var err error
 		ctx := r.Context()
-		l := logger.FromContext(ctx)
-		defer logger.TimeTrack(l, time.Now(), "handler.Shorten")
+		ctx, span := monitoring.Start(ctx, "Handler.Shorten")
+		defer monitoring.End(span, &err)
 
-		inp, err := mapToShortenInput(r)
+		l := monitoring.Log(ctx)
+
+		inp, err := validateAndMapToShortenInput(ctx, r)
 		if err != nil {
 			l.Error().Stack().Err(err).Msg("[Shorten] mapToShortenInput err")
 			return err
@@ -55,7 +60,10 @@ func (h *Handler) Shorten() http.HandlerFunc {
 	})
 }
 
-func mapToShortenInput(r *http.Request) (shorturl.ShortenInput, error) {
+func validateAndMapToShortenInput(ctx context.Context, r *http.Request) (shorturl.ShortenInput, error) {
+	l := monitoring.Log(ctx)
+	defer l.TimeTrack(time.Now(), "[Shorten] validate and map to ShortenInput")
+
 	var req ShortenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return shorturl.ShortenInput{}, err

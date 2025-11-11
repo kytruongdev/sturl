@@ -1,28 +1,34 @@
 package pg
 
 import (
+	"context"
 	"database/sql"
-	"fmt"
-	"os"
 
+	"github.com/XSAM/otelsql"
 	_ "github.com/lib/pq"
 	pkgerrors "github.com/pkg/errors"
 )
 
-// DatabaseName indicates name of applying database. It's `postgres` in this case
+// DatabaseName indicates the name of the database driver.
 const DatabaseName = "postgres"
 
-// Connect connects to database
+// Connect establishes a connection to the PostgreSQL database with OpenTelemetry instrumentation.
 func Connect(dbURL string) (*sql.DB, error) {
-	conn, err := sql.Open(DatabaseName, dbURL)
+	// register instrumented driver for PostgreSQL
+	driverName, err := otelsql.Register(DatabaseName, otelsql.WithAttributes())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
-		os.Exit(1)
-	}
-
-	if err = conn.Ping(); err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
 
-	return conn, nil
+	// open DB using the instrumented driver
+	db, err := sql.Open(driverName, dbURL)
+	if err != nil {
+		return nil, pkgerrors.WithStack(err)
+	}
+
+	if err := db.PingContext(context.Background()); err != nil {
+		return nil, pkgerrors.WithStack(err)
+	}
+
+	return db, nil
 }

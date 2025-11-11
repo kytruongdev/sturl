@@ -1,29 +1,24 @@
 package httpserver
 
 import (
-	"context"
 	"net/http"
-	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/logger"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/transportmeta"
 )
 
+// Handler builds the root chi.Router with middlewares and routes
 func Handler(
-	ctx context.Context,
 	corsConf CORSConfig,
+	transportMetaConf transportmeta.Config,
 	routerFn func(r chi.Router),
 ) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(NewIdentifier(IdentifierConfig{
-		EnableXCorrelationID: os.Getenv("ENABLE_X_CORRELATION_ID") == "1",
-		EnableXRequestID:     os.Getenv("ENABLE_X_REQUEST_ID") == "1",
-	}).Middleware)
-
-	r.Use(logger.RequestLogger(ctx))
-
+	r.Use(transportmeta.Middleware(transportMetaConf))
+	r.Use(monitoring.Middleware())
 	r.Use(cors.New(cors.Options{
 		AllowedOrigins:   corsConf.allowedOrigins,
 		AllowedMethods:   corsConf.allowedMethods,
@@ -40,6 +35,8 @@ func Handler(
 	return r
 }
 
+// checkLiveness handles the root path health check endpoint.
+// It returns a simple "ok!" response to indicate the server is running.
 func checkLiveness(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")

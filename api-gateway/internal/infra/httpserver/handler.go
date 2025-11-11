@@ -1,29 +1,23 @@
 package httpserver
 
 import (
-	"context"
 	"net/http"
-	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/kytruongdev/sturl/api-gateway/internal/infra/logger"
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring"
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/transportmeta"
 )
 
+// Handler builds the root chi.Router with middlewares and routes
 func Handler(
-	ctx context.Context,
 	corsConf CORSConfig,
 	routerFn func(r chi.Router),
 ) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(NewIdentifier(IdentifierConfig{
-		EnableXCorrelationID: os.Getenv("ENABLE_X_CORRELATION_ID") == "1",
-		EnableXRequestID:     os.Getenv("ENABLE_X_REQUEST_ID") == "1",
-	}).Middleware)
-
-	r.Use(logger.RequestLogger(ctx))
-
+	r.Use(transportmeta.Middleware(transportmeta.NewConfig()))
+	r.Use(monitoring.Middleware())
 	r.Use(cors.New(cors.Options{
 		AllowedOrigins:   corsConf.allowedOrigins,
 		AllowedMethods:   corsConf.allowedMethods,

@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-// CORSConfig holds the CORS configuration
+// CORSConfig holds the configuration options for Cross-Origin Resource Sharing (CORS)
 type CORSConfig struct {
 	allowedOrigins   []string
 	allowedMethods   []string
@@ -14,7 +14,7 @@ type CORSConfig struct {
 	maxAge           int
 }
 
-// NewCORSConfig initializes and returns a CORSConfig
+// NewCORSConfig returns a CORS middleware instance using the provided configuration
 func NewCORSConfig(origins []string, opts ...CORSOption) CORSConfig {
 	cfg := CORSConfig{
 		allowedOrigins: origins,
@@ -24,10 +24,11 @@ func NewCORSConfig(origins []string, opts ...CORSOption) CORSConfig {
 			"Authorization",
 			"Content-Type",
 		},
-		exposedHeaders:   []string{"Link", "X-Request-ID", "X-Correlation-ID"},
+		exposedHeaders:   []string{"Link", "X-Correlation-ID", "X-Request-ID"},
 		allowCredentials: true,
 		maxAge:           300,
 	}
+
 	for _, o := range opts {
 		o(&cfg)
 	}

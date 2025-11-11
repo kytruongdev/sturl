@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +29,7 @@ func TestProxyToService(t *testing.T) {
 		"ok: known service proxied": {
 			serviceName: "ok-service",
 			method:      http.MethodGet,
-			path:        "/api/public/v1/shorten",
+			path:        "/api/public/v1/redirect/123",
 			expectCode:  http.StatusOK,
 			expectBody:  "ok!",
 		},
@@ -69,14 +68,10 @@ func TestProxyToService(t *testing.T) {
 // setupProxyForTesting registers fake service in proxy registry
 func setupProxyForTesting(t *testing.T, name string, upstream *httptest.Server) {
 	t.Helper()
-	cfg := ServiceConfig{
-		Name:            name,
-		BaseURL:         upstream.URL,
-		ResponseTimeout: 100 * time.Millisecond,
-		IdleConnTimeout: 100 * time.Millisecond,
-		MaxIdleConns:    5,
-		LogServiceName:  true,
+	cfg := Config{
+		UpstreamServiceName:    name,
+		UpstreamServiceBaseURL: upstream.URL,
 	}
-	err := Register(cfg)
+	err := Register(t.Context(), cfg)
 	require.NoError(t, err, "failed to register proxy for %s", name)
 }

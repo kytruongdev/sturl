@@ -18,6 +18,19 @@ services:
       LOG_LEVEL: "0"
       APP_ENV: "local"
       ENABLE_X_CORRELATION_ID: "1"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+      REQUIRES_METADATA: "X-Correlation-ID"
+    networks:
+      - sturl-net
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: jaeger
+    ports:
+      - "16686:16686"   # Web UI
+      - "4317:4317"     # OTLP gRPC endpoint (OpenTelemetry)
+    environment:
+      - COLLECTOR_OTLP_ENABLED:true
     networks:
       - sturl-net
 
