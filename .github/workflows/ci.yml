@@ -1,0 +1,112 @@
+name: CI - Sturl Monorepo
+
+on:
+  pull_request:
+    branches: [ master, main ]
+  push:
+    branches: [ master, main ]
+
+jobs:
+  # ===============================
+  # API GATEWAY
+  # ===============================
+  api-gateway:
+    name: Test API Gateway
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-gateway
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.2'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-api-gateway-${{ hashFiles('api-gateway/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-api-gateway-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        env:
+          SERVER_ADDR: ":3010"
+          SERVICE_NAME: "api-gateway"
+          LOG_LEVEL: "0"
+          APP_ENV: "test"
+          ENABLE_X_CORRELATION_ID: "1"
+          OTEL_EXPORTER_OTLP_ENDPOINT: "localhost:4317"
+          REQUIRES_METADATA: "X-Correlation-ID"
+          URL_SHORTENER_SERVICE_NAME: "url-shortener"
+          URL_SHORTENER_URL: "http://localhost:3011"
+        run: make test
+
+      - name: Teardown
+        if: always()
+        run: make down
+
+  # ===============================
+  # URL SHORTENER SERVICE
+  # ===============================
+  url-shortener:
+    name: Test URL Shortener Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: url-shortener-service
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.2'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-url-shortener-${{ hashFiles('url-shortener-service/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-url-shortener-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Set up Docker Compose
+        run: docker compose version
+
+      - name: Setup environment (create-network + DB + migrate + redis)
+        run: make setup
+
+      - name: Run tests
+        env:
+          PG_URL: postgres://postgres:postgres@localhost:5432/url-shortener?sslmode=disable
+          SERVER_ADDR: ":3011"
+          REDIS_ADDR: "localhost:6379"
+          SERVICE_NAME: "url-shortener"
+          LOG_LEVEL: "0"
+          APP_ENV: "test"
+          ENABLE_X_REQUEST_ID: "1"
+          OTEL_EXPORTER_OTLP_ENDPOINT: "localhost:4317"
+          REQUIRES_METADATA: "X-Request-ID"
+        run: make test
+
+      - name: Teardown
+        if: always()
+        run: make down

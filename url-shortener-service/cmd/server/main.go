@@ -20,8 +20,7 @@ import (
 func main() {
 	rootCtx := context.Background()
 
-	l := monitoring.Log(rootCtx)
-	l.Info().Msg("Starting app initialization")
+	log.Println("Starting app initialization")
 
 	// --- Load global config
 	globalCfg := loadGlobalConfig()
@@ -43,7 +42,7 @@ func main() {
 	// --- Setup routers
 	rtr := initRouter(conn, redisClient)
 
-	l.Info().Msg("App initialization completed")
+	log.Println("App initialization completed")
 
 	// --- Start server
 	httpserver.Start(httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), globalCfg.TransportMetaCfg, rtr.Routes),

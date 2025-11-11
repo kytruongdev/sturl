@@ -4,10 +4,10 @@ PROJECT_NAME=api-gateway
 SERVER_CONTAINER=gateway
 
 run:
-	docker-compose -p $(PROJECT_NAME) up --build $(SERVER_CONTAINER)
+	docker compose -p $(PROJECT_NAME) up --build $(SERVER_CONTAINER)
 
 down:
-	docker-compose down
+	docker compose down
 
 jaeger:
 	docker compose up jaeger -d

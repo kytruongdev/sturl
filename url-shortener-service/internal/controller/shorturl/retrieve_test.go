@@ -2,7 +2,6 @@ package shorturl
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -52,8 +51,8 @@ func TestRetrieve(t *testing.T) {
 		},
 		"not found": {
 			shortCode:             "abc",
-			mockGetByShortCodeErr: errors.New("short code not found"),
-			wantErr:               errors.New("short code not found"),
+			mockGetByShortCodeErr: shorturl.ErrNotFound,
+			wantErr:               ErrURLNotfound,
 		},
 	}
 

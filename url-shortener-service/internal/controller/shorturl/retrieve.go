@@ -2,9 +2,11 @@ package shorturl
 
 import (
 	"context"
+	"errors"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 )
 
 // Retrieve retrieves the original URL associated with the given short code.
@@ -18,6 +20,11 @@ func (i impl) Retrieve(ctx context.Context, shortCode string) (model.ShortUrl, e
 	m, err := i.shortUrlRepo.GetByShortCode(ctx, shortCode)
 	if err != nil {
 		l.Error().Err(err).Msg("[Retrieve] shortUrlRepo.GetByShortCode err")
+
+		if errors.Is(err, shorturl.ErrNotFound) {
+			return model.ShortUrl{}, ErrURLNotfound
+		}
+
 		return model.ShortUrl{}, err
 	}
 
