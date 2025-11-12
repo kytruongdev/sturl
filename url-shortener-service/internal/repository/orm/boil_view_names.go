@@ -3,8 +3,5 @@
 
 package orm
 
-var TableNames = struct {
-	ShortUrls string
-}{
-	ShortUrls: "short_urls",
-}
+var ViewNames = struct {
+}{}

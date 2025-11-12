@@ -17,7 +17,7 @@ func (i impl) Retrieve(ctx context.Context, shortCode string) (model.ShortUrl, e
 
 	l := monitoring.Log(ctx)
 
-	m, err := i.shortUrlRepo.GetByShortCode(ctx, shortCode)
+	m, err := i.repo.ShortUrl().GetByShortCode(ctx, shortCode)
 	if err != nil {
 		l.Error().Err(err).Msg("[Retrieve] shortUrlRepo.GetByShortCode err")
 

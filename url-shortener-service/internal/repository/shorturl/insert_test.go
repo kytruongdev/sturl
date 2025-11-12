@@ -12,19 +12,16 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/pkg/testutil"
 	redisRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/redis"
-	"github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestInsert(t *testing.T) {
 	tcs := map[string]struct {
-		fixture             string
-		mockCacheKey        string
-		setupSetToCacheWant func() *redis.StatusCmd
-		given               model.ShortUrl
-		want                model.ShortUrl
-		wantErr             error
+		fixture      string
+		mockCacheKey string
+		given        model.ShortUrl
+		want         model.ShortUrl
+		wantErr      error
 	}{
 		"success": {
 			fixture:      "testdata/accounts.sql",
@@ -33,9 +30,6 @@ func TestInsert(t *testing.T) {
 				ShortCode:   "fb123",
 				OriginalURL: "https://facebook123.com",
 				Status:      "ACTIVE",
-			},
-			setupSetToCacheWant: func() *redis.StatusCmd {
-				return nil
 			},
 			want: model.ShortUrl{
 				ShortCode:   "fb123",
@@ -51,9 +45,6 @@ func TestInsert(t *testing.T) {
 				OriginalURL: "https://facebook123.com",
 				Status:      "ACTIVE",
 			},
-			setupSetToCacheWant: func() *redis.StatusCmd {
-				return nil
-			},
 			want: model.ShortUrl{
 				ShortCode:   "fb123",
 				OriginalURL: "https://facebook123.com",
@@ -68,10 +59,7 @@ func TestInsert(t *testing.T) {
 				OriginalURL: "https://google.com",
 				Status:      "ACTIVE",
 			},
-			setupSetToCacheWant: func() *redis.StatusCmd {
-				return nil
-			},
-			wantErr: errors.New("orm: unable to insert into short_urls: pq: duplicate key value violates unique constraint \"short_urls_pkey\""),
+			wantErr: errors.New("orm: unable to insert into short_urls: ERROR: duplicate key value violates unique constraint \"short_urls_pkey\" (SQLSTATE 23505)"),
 		},
 	}
 
@@ -80,17 +68,10 @@ func TestInsert(t *testing.T) {
 			testutil.WithTxDB(t, func(tx *sql.Tx) {
 				ctx := context.Background()
 				testutil.LoadSQLFile(t, tx, tc.fixture)
-
-				setToCacheWant := tc.setupSetToCacheWant()
-				redisClient := new(redisRepo.MockRedisClient)
-				redisClient.ExpectedCalls = []*mock.Call{
-					redisClient.On("Set", mock.Anything, tc.mockCacheKey, mock.Anything, cacheShortURLTTL).Return(setToCacheWant),
-				}
-
-				repo := New(tx, redisClient)
+				repo := New(tx, new(redisRepo.MockRedisClient))
 				actual, err := repo.Insert(ctx, tc.given)
 				if tc.wantErr != nil {
-					require.ErrorContains(t, err, tc.wantErr.Error())
+					require.EqualError(t, err, tc.wantErr.Error())
 					return
 				}
 

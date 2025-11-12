@@ -5,9 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -64,7 +66,16 @@ func TestRetrieve(t *testing.T) {
 				mockShortURLRepo.On("GetByShortCode", mock.Anything, tc.shortCode).Return(tc.mockGetByShortCodeResult, tc.mockGetByShortCodeErr),
 			}
 
-			i := New(mockShortURLRepo)
+			repo := new(repository.MockRegistry)
+			repo.ExpectedCalls = []*mock.Call{
+				repo.On("ShortUrl").Return(mockShortURLRepo),
+				repo.On("DoInTx", mock.Anything, mock.Anything, mock.Anything).Return(
+					func(ctx context.Context, policy backoff.BackOff, txFunc func(newCtx context.Context, repo repository.Registry) error) error {
+						return txFunc(ctx, repo)
+					}),
+			}
+
+			i := New(repo)
 			actual, err := i.Retrieve(ctx, tc.shortCode)
 			if tc.wantErr != nil {
 				require.EqualError(t, err, tc.wantErr.Error())
