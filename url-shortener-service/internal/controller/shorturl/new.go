@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository"
 )
 
 // Controller defines the interface for short URL business logic operations.
@@ -16,11 +16,13 @@ type Controller interface {
 
 // impl is the implementation of the controller
 type impl struct {
-	shortUrlRepo shorturl.Repository
+	repo repository.Registry
 }
 
 // New creates and returns a new Controller instance with the provided repository.
 // It returns a new instance of the controller for handling short URL operations.
-func New(shortUrlRepo shorturl.Repository) Controller {
-	return &impl{shortUrlRepo: shortUrlRepo}
+func New(repo repository.Registry) Controller {
+	return &impl{
+		repo: repo,
+	}
 }

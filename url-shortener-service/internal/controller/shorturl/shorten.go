@@ -8,7 +8,9 @@ import (
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // ShortenInput represents the input parameters for creating a short URL.
@@ -35,24 +37,13 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 	l := monitoring.Log(ctx)
 
 	// Check if the original URL already has a short code (idempotency check)
-	shortUrl, err := i.shortUrlRepo.GetByOriginalURL(ctx, inp.OriginalURL)
+	shortUrl, err := i.repo.ShortUrl().GetByOriginalURL(ctx, inp.OriginalURL)
 	if err != nil {
 		if errors.Is(err, shorturl.ErrNotFound) {
 			// URL doesn't exist, generate a new short code and create record
 			l.Warn().Msg("[Shorten] shorten URL not found, starting to create")
-			m, err := i.shortUrlRepo.Insert(ctx, model.ShortUrl{
-				OriginalURL: inp.OriginalURL,
-				Status:      model.ShortUrlStatusActive,
-				ShortCode:   generateShortCodeFunc(MaxSlugLength), // Generate random 7-character code
-			})
-			if err != nil {
-				l.Error().Err(err).Msg("[Shorten] shortUrlRepo.Insert err")
-				return model.ShortUrl{}, err
-			}
 
-			l.Info().Msg("[Shorten] shorten URL created")
-
-			return m, nil
+			return i.insert(ctx, inp)
 		}
 
 		l.Error().Stack().Err(err).Msg("[Shorten] shortUrlRepo.GetByOriginalURL err")
@@ -61,6 +52,35 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 	}
 
 	return shortUrl, nil
+}
+
+func (i impl) insert(ctx context.Context, inp ShortenInput) (model.ShortUrl, error) {
+	var m model.ShortUrl
+	var err error
+	spanCtx, span := monitoring.Start(ctx, "Repository.DoInTx")
+	defer monitoring.End(span, &err)
+
+	if err := i.repo.DoInTx(spanCtx, nil, func(newCtx context.Context, repo repository.Registry) error {
+		l := monitoring.Log(newCtx)
+		m, err = repo.ShortUrl().Insert(newCtx, model.ShortUrl{
+			OriginalURL: inp.OriginalURL,
+			Status:      model.ShortUrlStatusActive,
+			ShortCode:   generateShortCodeFunc(MaxSlugLength), // Generate random 7-character code
+		})
+
+		if err != nil {
+			l.Error().Err(err).Msg("[Shorten] shortUrlRepo.Insert err")
+			return err
+		}
+
+		l.Info().Msg("[Shorten] shorten URL created")
+
+		return nil
+	}); err != nil {
+		return model.ShortUrl{}, pkgerrors.WithStack(err)
+	}
+
+	return m, nil
 }
 
 // generateShortCode generates a random alphanumeric short code of the specified length.

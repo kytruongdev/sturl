@@ -11,10 +11,9 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository"
 	redisRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/redis"
-	shortUrlRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 	"github.com/redis/go-redis/v9"
-	"github.com/volatiletech/sqlboiler/boil"
 )
 
 func main() {
@@ -96,9 +95,9 @@ func initRedis(ctx context.Context, cfg config.GlobalConfig) redisRepo.RedisClie
 	return redisClient
 }
 
-func initRouter(conn boil.ContextExecutor, redisClient redisRepo.RedisClient) handler.Router {
-	shortURLRepo := shortUrlRepo.New(conn, redisClient)
-	shortURLCtrl := shortUrlCtrl.New(shortURLRepo)
+func initRouter(conn *sql.DB, redisClient redisRepo.RedisClient) handler.Router {
+	repo := repository.New(conn, redisClient)
+	shortURLCtrl := shortUrlCtrl.New(repo)
 
 	return handler.Router{
 		CorsOrigins:  []string{"*"},
