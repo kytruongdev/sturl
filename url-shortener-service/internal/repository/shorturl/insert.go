@@ -10,12 +10,10 @@ import (
 	pkgerrors "github.com/pkg/errors"
 )
 
-// Insert creates a new short URL record in the database and updates the cache.
-// It saves the short URL to PostgreSQL and then caches it in Redis for fast retrieval.
-// Note: Cache update failures are logged but don't cause the operation to fail.
+// Insert creates a new short URL record in the database.
 func (i impl) Insert(ctx context.Context, m model.ShortUrl) (model.ShortUrl, error) {
 	var err error
-	ctx, span := monitoring.Start(ctx, "Repository.Insert")
+	ctx, span := monitoring.Start(ctx, "ShortURLRepository.Insert")
 	defer monitoring.End(span, &err)
 
 	o := orm.ShortURL{

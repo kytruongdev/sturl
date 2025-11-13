@@ -1,4 +1,4 @@
-.PHONY: create-network db migrate redis setup run down generate-orm generate-mock test reset-db
+.PHONY: create-network db migrate redis setup run down generate-orm generate-mock test reset-db boilerplate
 
 PROJECT_NAME = url-shortener
 DB_CONTAINER = database
@@ -35,6 +35,8 @@ generate-mock:
 	docker compose run --rm --entrypoint '' mockery /bin/sh -c "\
 		mockery --dir internal/controller --all --recursive --inpackage && \
 		mockery --dir internal/repository --all --recursive --inpackage"
+
+boilerplate: migrate generate-orm generate-mock
 
 # run single test case:
 # env $(grep -v '^#' ./local.env | egrep -v '^#' | xargs) go test -cover -mod=vendor -v ./internal/repository/shorturl -run TestGetByOriginalURL

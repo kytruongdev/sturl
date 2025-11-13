@@ -18,13 +18,13 @@ import (
 // This is used for idempotency checks to ensure the same original URL returns the same short code.
 func (i impl) GetByOriginalURL(ctx context.Context, originalURL string) (model.ShortUrl, error) {
 	var err error
-	ctx, span := monitoring.Start(ctx, "Repository.GetByOriginalURL")
+	ctx, span := monitoring.Start(ctx, "ShortURLRepository.GetByOriginalURL")
 	defer monitoring.End(span, &err)
 
 	l := monitoring.Log(ctx)
 
 	cacheKey := fmt.Sprintf("%s%s", cacheKeyOriginalURL, originalURL)
-	
+
 	// Step 1: Try to fetch from Redis cache first (cache-aside pattern)
 	val, err := i.redisClient.GetBytes(ctx, cacheKey)
 	if err == nil {
