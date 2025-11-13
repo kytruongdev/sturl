@@ -10,6 +10,7 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/handler"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/id"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository"
 	redisRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/redis"
@@ -19,12 +20,14 @@ import (
 func main() {
 	rootCtx := context.Background()
 
-	log.Println("Starting app initialization")
-
 	// --- Load global config
 	globalCfg := loadGlobalConfig()
 
-	// --- Setup logging monitoring
+	if err := id.Init(1); err != nil {
+		panic(err)
+	}
+
+	// --- Setup monitoring
 	shutdown, err := initMonitoring(rootCtx, globalCfg.MonitoringCfg)
 	if err != nil {
 		panic(err)
@@ -35,13 +38,15 @@ func main() {
 	conn := initDB(globalCfg)
 	defer conn.Close()
 
+	l := monitoring.Log(rootCtx)
+
 	// --- Setup redis
 	redisClient := initRedis(rootCtx, globalCfg)
 
 	// --- Setup routers
 	rtr := initRouter(conn, redisClient)
 
-	log.Println("App initialization completed")
+	l.Info().Msg("url-shortener service started")
 
 	// --- Start server
 	httpserver.Start(httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), globalCfg.TransportMetaCfg, rtr.Routes),

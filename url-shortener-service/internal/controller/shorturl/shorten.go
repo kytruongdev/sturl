@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/id"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository"
@@ -43,7 +44,7 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 			// URL doesn't exist, generate a new short code and create record
 			l.Warn().Msg("[Shorten] shorten URL not found, starting to create")
 
-			return i.insert(ctx, inp)
+			return i.createShortURL(ctx, inp)
 		}
 
 		l.Error().Stack().Err(err).Msg("[Shorten] shortUrlRepo.GetByOriginalURL err")
@@ -54,7 +55,7 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 	return shortUrl, nil
 }
 
-func (i impl) insert(ctx context.Context, inp ShortenInput) (model.ShortUrl, error) {
+func (i impl) createShortURL(ctx context.Context, inp ShortenInput) (model.ShortUrl, error) {
 	var m model.ShortUrl
 	var err error
 	spanCtx, span := monitoring.Start(ctx, "Repository.DoInTx")
@@ -69,7 +70,25 @@ func (i impl) insert(ctx context.Context, inp ShortenInput) (model.ShortUrl, err
 		})
 
 		if err != nil {
-			l.Error().Err(err).Msg("[Shorten] shortUrlRepo.Insert err")
+			l.Error().Err(err).Msg("[Shorten] ShortUrlRepo.Insert err")
+			return err
+		}
+
+		_, err = repo.KafkaOutboxEvent().Insert(newCtx, model.KafkaOutboxEvent{
+			ID:        id.New(),
+			EventType: "urlshortener.metadata.requested.v1",
+			Status:    model.KafkaOutboxEventStatusPending,
+			Payload: model.Payload{
+				EventID:    id.New(),
+				OccurredAt: time.Now().UTC(),
+				Data: map[string]any{
+					"short_code":   m.ShortCode,
+					"original_url": m.OriginalURL,
+				},
+			},
+		})
+		if err != nil {
+			l.Error().Err(err).Msg("[Shorten] KafkaOutboxEventRepo.Insert err")
 			return err
 		}
 

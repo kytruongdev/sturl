@@ -3,9 +3,9 @@ package shorturl
 import (
 	"context"
 
+	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	redis2 "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/redis"
-	"github.com/volatiletech/sqlboiler/boil"
 )
 
 // Repository defines the interface for short URL data access operations.

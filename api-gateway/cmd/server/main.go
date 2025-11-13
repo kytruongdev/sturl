@@ -15,17 +15,17 @@ import (
 func main() {
 	rootCtx := context.Background()
 
-	log.Println("Starting app initialization")
-
 	// --- Load global config
 	globalCfg := loadGlobalConfig()
 
-	// --- Setup logging monitoring
+	// --- Setup monitoring
 	shutdown, err := initMonitoring(rootCtx, globalCfg.MonitoringCfg)
 	if err != nil {
 		panic(err)
 	}
 	defer shutdown(rootCtx)
+
+	l := monitoring.Log(rootCtx)
 
 	// --- Setup proxies
 	registerProxies(rootCtx)
@@ -33,7 +33,7 @@ func main() {
 	// --- Setup routers
 	rtr := initRouter()
 
-	log.Println("App initialization completed")
+	l.Info().Msg("api-gateway started")
 
 	// --- Start server
 	httpserver.Start(httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),

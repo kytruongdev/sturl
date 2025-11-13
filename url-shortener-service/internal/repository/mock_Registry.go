@@ -7,6 +7,7 @@ import (
 
 	backoff "github.com/cenkalti/backoff/v4"
 
+	kafkaoutboxevent "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/kafkaoutboxevent"
 	mock "github.com/stretchr/testify/mock"
 
 	shorturl "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
@@ -30,6 +31,26 @@ func (_m *MockRegistry) DoInTx(ctx context.Context, policy backoff.BackOff, fn f
 		r0 = rf(ctx, policy, fn)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// KafkaOutboxEvent provides a mock function with no fields
+func (_m *MockRegistry) KafkaOutboxEvent() kafkaoutboxevent.Repository {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for KafkaOutboxEvent")
+	}
+
+	var r0 kafkaoutboxevent.Repository
+	if rf, ok := ret.Get(0).(func() kafkaoutboxevent.Repository); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(kafkaoutboxevent.Repository)
+		}
 	}
 
 	return r0
