@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/cenkalti/backoff/v4"
@@ -15,21 +16,23 @@ import (
 // providing unified access and transaction management.
 type Registry interface {
 	ShortUrl() shorturl.Repository
-	DoInTx(ctx context.Context, policy backoff.BackOff, fn func(ctx context.Context, txRepo Registry) error) error
+	DoInTx(ctx context.Context, backoffPolicy backoff.BackOff, fn func(ctx context.Context, txRepo Registry) error) error
 }
 
 // impl provides a concrete implementation of Registry.
 type impl struct {
-	db       *sql.DB
-	tx       boil.ContextExecutor
-	shortUrl shorturl.Repository
+	db          *sql.DB
+	tx          boil.ContextExecutor
+	redisClient redisRepo.RedisClient
+	shortUrl    shorturl.Repository
 }
 
 // New creates a new non-transactional repository registry.
 func New(db *sql.DB, redisClient redisRepo.RedisClient) Registry {
 	return impl{
-		db:       db,
-		shortUrl: shorturl.New(db, redisClient),
+		db:          db,
+		redisClient: redisClient,
+		shortUrl:    shorturl.New(db, redisClient),
 	}
 }
 
@@ -46,15 +49,15 @@ func (i impl) ShortUrl() shorturl.Repository {
 //
 // Inside 'fn', a new transactional Registry instance is passed,
 // where repository operations share the same *sql.Tx context.
-func (i impl) DoInTx(ctx context.Context, policy backoff.BackOff, fn func(ctx context.Context, txRepo Registry) error) error {
-	if policy == nil {
-		policy = backoff.NewExponentialBackOff()
+func (i impl) DoInTx(ctx context.Context, backoffPolicy backoff.BackOff, fn func(ctx context.Context, txRepo Registry) error) error {
+	if backoffPolicy == nil {
+		backoffPolicy = pg.ExponentialBackOff(3, time.Minute)
 	}
 
-	return pg.TxWithBackoff(ctx, i.db, policy, func(ctx context.Context, tx boil.ContextExecutor) error {
+	return pg.TxWithBackoff(ctx, i.db, backoffPolicy, func(ctx context.Context, tx boil.ContextExecutor) error {
 		return fn(ctx, impl{
 			tx:       tx,
-			shortUrl: i.shortUrl,
+			shortUrl: shorturl.New(tx, i.redisClient),
 		})
 	})
 }
