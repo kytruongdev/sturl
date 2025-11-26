@@ -4,6 +4,7 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/app"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/kafka"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/transportmeta"
 )
@@ -19,6 +20,7 @@ type GlobalConfig struct {
 	ServerCfg        httpserver.Config    // HTTP server configuration (address, Redis address)
 	MonitoringCfg    monitoring.Config    // Observability configuration (logging, tracing, metrics)
 	TransportMetaCfg transportmeta.Config // Request metadata propagation configuration
+	KafkaCfg         kafka.Config
 }
 
 // NewGlobalConfig creates and loads a new GlobalConfig instance from environment variables.
@@ -31,6 +33,7 @@ func NewGlobalConfig() GlobalConfig {
 		ServerCfg:        httpserver.NewConfig(),
 		MonitoringCfg:    monitoring.NewConfig(),
 		TransportMetaCfg: transportmeta.NewConfig(),
+		KafkaCfg:         kafka.NewConfig(),
 	}
 }
 
@@ -44,16 +47,16 @@ func (c GlobalConfig) Validate() error {
 	if err := c.PGCfg.Validate(); err != nil {
 		return err
 	}
-
 	if err := c.ServerCfg.Validate(); err != nil {
 		return err
 	}
-
 	if err := c.MonitoringCfg.Validate(); err != nil {
 		return err
 	}
-
 	if err := c.TransportMetaCfg.Validate(); err != nil {
+		return err
+	}
+	if err := c.KafkaCfg.Validate(); err != nil {
 		return err
 	}
 
