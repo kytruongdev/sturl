@@ -3,7 +3,6 @@ package pg
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -25,29 +24,27 @@ import (
 func TxWithBackoff(ctx context.Context, db boil.ContextBeginner, policy backoff.BackOff, fn func(context.Context, boil.ContextExecutor) error) error {
 	l := monitoring.Log(ctx)
 
-	return retryWithBackoff(ctx, policy, func() error {
-		err := withTx(ctx, db, l, func(ctx context.Context, tx boil.ContextExecutor) error {
-			opErr := fn(ctx, tx)
+	if policy == nil {
+		policy = ExponentialBackOff(5, 8*time.Second)
+	}
 
-			if opErr != nil {
-				if isRetryable(opErr) {
-					l.Error().Err(opErr).Msg("[TxWithBackoff] retryable error encountered, will retry")
-					return opErr
-				}
-
-				l.Error().Err(opErr).Msg("[TxWithBackoff] non-retryable error")
-				return backoff.Permanent(opErr)
-			}
-
-			return nil
-		})
+	op := func() error {
+		l.Debug().Msg("TxWithBackoff: starting transactional operation")
+		err := withTx(ctx, db, l, fn)
 
 		if err != nil {
-			l.Error().Err(err).Msg("[TxWithBackoff] transaction failed")
+			if isRetryable(err) {
+				l.Warn().Err(err).Msg("TxWithBackoff: retryable error")
+				return err
+			}
+			l.Error().Err(err).Msg("TxWithBackoff: non-retryable error")
+			return backoff.Permanent(err)
 		}
 
-		return err
-	})
+		return nil
+	}
+
+	return retryWithBackoff(ctx, policy, l, op)
 }
 
 // withTx executes the given function inside a database transaction.
@@ -60,28 +57,30 @@ func TxWithBackoff(ctx context.Context, db boil.ContextBeginner, policy backoff.
 func withTx(ctx context.Context, db boil.ContextBeginner, log monitoring.Logger, fn func(context.Context, boil.ContextExecutor) error) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		log.Error().Err(err).Msg("[withTx] failed to begin transaction")
-		return fmt.Errorf("[withTx] failed to begin transaction: %w", err)
+		log.Error().Err(err).Msg("withTx: failed to begin transaction")
+		return err
 	}
 
 	defer func() {
 		if p := recover(); p != nil {
 			_ = tx.Rollback()
+			log.Error().Interface("panic", p).Msg("withTx: panic recovered → rollback")
 			panic(p)
 		}
 	}()
 
 	if err := fn(ctx, tx); err != nil {
 		_ = tx.Rollback()
-		log.Error().Err(err).Msg("[withTx] transaction rolled back due to error")
-		return fmt.Errorf("[withTx] transaction rolled back due to error: %w", err)
+		log.Warn().Err(err).Msg("withTx: fn returned error → rollback")
+		return err
 	}
 
 	if err := tx.Commit(); err != nil {
-		log.Error().Err(err).Msg("[withTx] failed to commit transaction")
-		return fmt.Errorf("[withTx] failed to commit transaction: %w", err)
+		log.Error().Err(err).Msg("withTx: commit failed")
+		return err
 	}
 
+	log.Debug().Msg("withTx: committed successfully")
 	return nil
 }
 
@@ -90,14 +89,17 @@ func withTx(ctx context.Context, db boil.ContextBeginner, log monitoring.Logger,
 // If operation returns backoff.Permanent(err), retry stops immediately.
 //
 // Logs are included so failures are visible and traceable.
-func retryWithBackoff(ctx context.Context, policy backoff.BackOff, operation func() error) error {
-	if policy == nil {
-		policy = ExponentialBackOff(3, time.Minute)
-	}
-
-	return backoff.Retry(func() error {
-		return operation()
-	}, backoff.WithContext(policy, ctx))
+func retryWithBackoff(ctx context.Context, policy backoff.BackOff, l monitoring.Logger, operation func() error) error {
+	return backoff.RetryNotify(
+		operation,
+		backoff.WithContext(policy, ctx),
+		func(err error, d time.Duration) {
+			l.Warn().
+				Err(err).
+				Dur("retry_in", d).
+				Msg("retryWithBackoff: transient error → retrying")
+		},
+	)
 }
 
 // isRetryable determines whether a given error is safe to retry.
