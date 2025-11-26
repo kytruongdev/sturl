@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"net/http"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/config"
 	shortUrlCtrl "github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/handler"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/app"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/httpserver"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/id"
@@ -46,11 +48,20 @@ func main() {
 	// --- Setup routers
 	rtr := initRouter(conn, redisClient)
 
-	l.Info().Msg("url-shortener service started")
+	l.Info().Msgf("%v service started", globalCfg.ServerCfg.ServiceName)
 
 	// --- Start server
-	httpserver.Start(httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), globalCfg.TransportMetaCfg, rtr.Routes),
-		globalCfg.ServerCfg)
+	svcName := globalCfg.ServerCfg.ServiceName
+	r := app.Runner{Name: svcName}
+	if err = r.Start(
+		rootCtx,
+		runner{
+			s: &http.Server{
+				Addr:    globalCfg.ServerCfg.ServerAddr,
+				Handler: httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), globalCfg.TransportMetaCfg, rtr.Routes),
+			}}); err != nil {
+		l.Error().Err(err).Msgf("%v exited with error", svcName)
+	}
 }
 
 func loadGlobalConfig() config.GlobalConfig {
@@ -108,4 +119,23 @@ func initRouter(conn *sql.DB, redisClient redisRepo.RedisClient) handler.Router 
 		CorsOrigins:  []string{"*"},
 		ShortURLCtrl: shortURLCtrl,
 	}
+}
+
+// runner is an adapter to make http.Server implement app.Service
+type runner struct {
+	s *http.Server
+}
+
+func (h runner) Run(ctx context.Context) error {
+	// ctx is not used directly here: Shutdown will cause ListenAndServe to unblock.
+	if err := h.s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		monitoring.Log(ctx).Error().Err(err).Msg("url-shortener-service exited with error")
+		return err
+	}
+	return nil
+}
+
+func (h runner) Shutdown(ctx context.Context) error {
+	monitoring.Log(ctx).Warn().Msg("url-shortener-service exited")
+	return h.s.Shutdown(ctx)
 }
