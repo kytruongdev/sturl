@@ -6,7 +6,11 @@ DB_CONTAINER_NAME = pg
 DB_NAME = url-shortener
 MIGRATE_CONTAINER = migrate
 SERVER_CONTAINER = server
+PRODUCER_CONTAINER = producer
 REDIS_CONTAINER = redis
+KAFKA_CONTAINER=kafka
+BROKER=kafka:9092
+TOPIC=urlshortener.metadata.requested.v1
 
 create-network:
 	docker network create sturl-net || true
@@ -24,6 +28,9 @@ setup: create-network db migrate redis
 
 run:
 	docker compose -p $(PROJECT_NAME) up --build $(SERVER_CONTAINER)
+
+run-producer:
+	docker compose -p $(PROJECT_NAME) up --build $(PRODUCER_CONTAINER)
 
 down:
 	docker compose down
@@ -47,3 +54,28 @@ test:
 
 reset-db:
 	docker exec -i $(DB_CONTAINER_NAME) psql -U postgres -d $(DB_NAME) -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+# kafka commands
+kafka:
+	docker compose -p $(PROJECT_NAME) up -d $(KAFKA_CONTAINER)
+
+kafka-down:
+	docker compose stop kafka
+
+kafka-topics:
+	docker exec -it $(KAFKA_CONTAINER) kafka-topics --list --bootstrap-server $(BROKER)
+
+kafka-create-topic:
+	docker exec kafka sh -c "\
+	  kafka-topics --bootstrap-server kafka:9092 \
+	    --create \
+	    --topic urlshortener.metadata.requested.v1 \
+	    --partitions 1 \
+	    --replication-factor 1 \
+	    || true"
+
+kafka-console:
+	docker exec -it $(KAFKA_CONTAINER) kafka-console-consumer \
+	  --topic $(TOPIC) \
+	  --bootstrap-server $(BROKER) \
+	  --from-beginning
