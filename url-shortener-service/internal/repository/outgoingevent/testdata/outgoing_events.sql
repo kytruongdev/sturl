@@ -1,6 +1,6 @@
-TRUNCATE TABLE kafka_outbox_events RESTART IDENTITY;
+TRUNCATE TABLE outgoing_events RESTART IDENTITY;
 
-INSERT INTO kafka_outbox_events (id, event_type, payload, status, created_at, updated_at)
+INSERT INTO outgoing_events (id, topic, payload, status, created_at, updated_at)
 VALUES
     (3, 'evt.pending.3', '{"event_id":3,"data":{"short_code":"3","original_url":"foo.bar/3"}}', 'PENDING', NOW(), NOW()),
     (1, 'evt.pending.1', '{"event_id":1,"data":{"short_code":"1","original_url":"foo.bar/1"}}', 'PENDING', NOW(), NOW()),

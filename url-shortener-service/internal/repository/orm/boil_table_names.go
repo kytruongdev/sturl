@@ -4,9 +4,9 @@
 package orm
 
 var TableNames = struct {
-	KafkaOutboxEvents string
-	ShortUrls         string
+	OutgoingEvents string
+	ShortUrls      string
 }{
-	KafkaOutboxEvents: "kafka_outbox_events",
-	ShortUrls:         "short_urls",
+	OutgoingEvents: "outgoing_events",
+	ShortUrls:      "short_urls",
 }

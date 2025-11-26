@@ -1,4 +1,4 @@
-package kafkaoutboxevent
+package outgoingevent
 
 import (
 	"context"
@@ -11,24 +11,24 @@ import (
 )
 
 // Insert creates a new outbox event record in the database.
-func (i impl) Insert(ctx context.Context, m model.KafkaOutboxEvent) (model.KafkaOutboxEvent, error) {
+func (i impl) Insert(ctx context.Context, m model.OutgoingEvent) (model.OutgoingEvent, error) {
 	var err error
-	ctx, span := monitoring.Start(ctx, "OutboxEventRepository.Insert")
+	ctx, span := monitoring.Start(ctx, "OutgoingEventRepository.Insert")
 	defer monitoring.End(span, &err)
 
-	o := orm.KafkaOutboxEvent{
-		ID:        m.ID,
-		EventType: m.EventType,
-		Status:    m.Status.String(),
+	o := orm.OutgoingEvent{
+		ID:     m.ID,
+		Topic:  m.Topic,
+		Status: m.Status.String(),
 	}
 
 	o.Payload, err = m.MarshalPayload()
 	if err != nil {
-		return model.KafkaOutboxEvent{}, pkgerrors.WithStack(err)
+		return model.OutgoingEvent{}, pkgerrors.WithStack(err)
 	}
 
 	if err = o.Insert(ctx, i.db, boil.Infer()); err != nil {
-		return model.KafkaOutboxEvent{}, pkgerrors.WithStack(err)
+		return model.OutgoingEvent{}, pkgerrors.WithStack(err)
 	}
 
 	m.CreatedAt = o.CreatedAt

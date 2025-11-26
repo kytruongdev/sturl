@@ -1,4 +1,4 @@
-package kafkaoutboxevent
+package outgoingevent
 
 import (
 	"context"
@@ -10,8 +10,10 @@ import (
 // Repository defines the interface for short URL data access operations.
 // It provides the specification of the functionality provided by this package.
 type Repository interface {
-	GetByStatus(ctx context.Context, status string) ([]model.KafkaOutboxEvent, error)
-	Insert(context.Context, model.KafkaOutboxEvent) (model.KafkaOutboxEvent, error)
+	GetByStatus(context.Context, string, int) ([]model.OutgoingEvent, error)
+	GetPendingEventsToRetry(context.Context, string, int) ([]model.OutgoingEvent, error)
+	Insert(context.Context, model.OutgoingEvent) (model.OutgoingEvent, error)
+	Update(context.Context, model.OutgoingEvent, int64) error
 }
 
 // impl is the implementation of the repository

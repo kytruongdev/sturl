@@ -1,4 +1,4 @@
-package kafkaoutboxevent
+package outgoingevent
 
 import (
 	"context"
@@ -17,17 +17,19 @@ func TestGetByStatus(t *testing.T) {
 	tcs := map[string]struct {
 		fixture string
 		status  string
-		want    []model.KafkaOutboxEvent
+		limit   int
+		want    []model.OutgoingEvent
 		wantErr error
 	}{
 		"success - return PENDING events": {
-			fixture: "testdata/kafka_outbox_events.sql",
+			fixture: "testdata/outgoing_events.sql",
 			status:  "PENDING",
-			want: []model.KafkaOutboxEvent{
+			limit:   100,
+			want: []model.OutgoingEvent{
 				{
-					ID:        1,
-					EventType: "evt.pending.1",
-					Status:    model.KafkaOutboxEventStatusPending,
+					ID:     1,
+					Topic:  "evt.pending.1",
+					Status: model.OutgoingEventStatusPending,
 					Payload: model.Payload{
 						EventID:    1,
 						OccurredAt: time.Now(),
@@ -38,9 +40,9 @@ func TestGetByStatus(t *testing.T) {
 					},
 				},
 				{
-					ID:        2,
-					EventType: "evt.pending.2",
-					Status:    model.KafkaOutboxEventStatusPending,
+					ID:     2,
+					Topic:  "evt.pending.2",
+					Status: model.OutgoingEventStatusPending,
 					Payload: model.Payload{
 						EventID:    2,
 						OccurredAt: time.Now(),
@@ -51,9 +53,9 @@ func TestGetByStatus(t *testing.T) {
 					},
 				},
 				{
-					ID:        3,
-					EventType: "evt.pending.3",
-					Status:    model.KafkaOutboxEventStatusPending,
+					ID:     3,
+					Topic:  "evt.pending.3",
+					Status: model.OutgoingEventStatusPending,
 					Payload: model.Payload{
 						EventID:    3,
 						OccurredAt: time.Now(),
@@ -65,10 +67,10 @@ func TestGetByStatus(t *testing.T) {
 				},
 			},
 		},
-
 		"success - empty result": {
-			fixture: "testdata/kafka_outbox_events.sql",
+			fixture: "testdata/outgoing_events.sql",
 			status:  "FAILED",
+			limit:   100,
 			want:    nil,
 		},
 	}
@@ -82,7 +84,7 @@ func TestGetByStatus(t *testing.T) {
 
 				repo := New(tx)
 
-				got, err := repo.GetByStatus(ctx, tc.status)
+				got, err := repo.GetByStatus(ctx, tc.status, tc.limit)
 
 				if tc.wantErr != nil {
 					require.EqualError(t, err, tc.wantErr.Error())
@@ -93,11 +95,11 @@ func TestGetByStatus(t *testing.T) {
 
 				require.True(t,
 					cmp.Equal(tc.want, got,
-						cmpopts.IgnoreFields(model.KafkaOutboxEvent{},
+						cmpopts.IgnoreFields(model.OutgoingEvent{},
 							"CreatedAt", "UpdatedAt", "Payload.OccurredAt")),
 					"diff: %v",
 					cmp.Diff(tc.want, got,
-						cmpopts.IgnoreFields(model.KafkaOutboxEvent{},
+						cmpopts.IgnoreFields(model.OutgoingEvent{},
 							"CreatedAt", "UpdatedAt", "Payload.OccurredAt")),
 				)
 			})

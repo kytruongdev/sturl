@@ -33,7 +33,7 @@ var newIDFunc = id.New
 // The operation is idempotent - the same original URL will always return the same short code.
 func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, error) {
 	var err error
-	ctx, span := monitoring.Start(ctx, "Controller.Shorten")
+	ctx, span := monitoring.Start(ctx, "ShortURLController.Shorten")
 	defer monitoring.End(span, &err)
 
 	l := monitoring.Log(ctx)
@@ -43,7 +43,9 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 	if err != nil {
 		if errors.Is(err, shorturl.ErrNotFound) {
 			// URL doesn't exist, generate a new short code and create record
-			l.Warn().Msg("[Shorten] shorten URL not found, starting to create")
+			l.Warn().
+				Str("original_url", inp.OriginalURL).
+				Msg("Shorten: URL not found → creating new short URL")
 
 			return i.createShortURL(ctx, inp)
 		}
@@ -52,6 +54,11 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 
 		return model.ShortUrl{}, err
 	}
+
+	l.Info().
+		Str("original_url", inp.OriginalURL).
+		Str("short_code", shortUrl.ShortCode).
+		Msg("Shorten: URL already exists, returning existing short code")
 
 	return shortUrl, nil
 }
@@ -62,9 +69,9 @@ func (i impl) createShortURL(ctx context.Context, inp ShortenInput) (model.Short
 	spanCtx, span := monitoring.Start(ctx, "Repository.DoInTx")
 	defer monitoring.End(span, &err)
 
-	if err := i.repo.DoInTx(spanCtx, nil, func(newCtx context.Context, repo repository.Registry) error {
+	if err := i.repo.DoInTx(spanCtx, nil, func(newCtx context.Context, regRepo repository.Registry) error {
 		l := monitoring.Log(newCtx)
-		m, err = repo.ShortUrl().Insert(newCtx, model.ShortUrl{
+		m, err = regRepo.ShortUrl().Insert(newCtx, model.ShortUrl{
 			OriginalURL: inp.OriginalURL,
 			Status:      model.ShortUrlStatusActive,
 			ShortCode:   generateShortCodeFunc(MaxSlugLength), // Generate random 7-character code
@@ -75,10 +82,10 @@ func (i impl) createShortURL(ctx context.Context, inp ShortenInput) (model.Short
 			return err
 		}
 
-		_, err = repo.KafkaOutboxEvent().Insert(newCtx, model.KafkaOutboxEvent{
-			ID:        newIDFunc(),
-			EventType: "urlshortener.metadata.requested.v1",
-			Status:    model.KafkaOutboxEventStatusPending,
+		oe, err := regRepo.OutgoingEvent().Insert(newCtx, model.OutgoingEvent{
+			ID:     newIDFunc(),
+			Topic:  "urlshortener.metadata.requested.v1",
+			Status: model.OutgoingEventStatusPending,
 			Payload: model.Payload{
 				EventID:    newIDFunc(),
 				OccurredAt: time.Now().UTC(),
@@ -89,11 +96,20 @@ func (i impl) createShortURL(ctx context.Context, inp ShortenInput) (model.Short
 			},
 		})
 		if err != nil {
-			l.Error().Err(err).Msg("[Shorten] KafkaOutboxEventRepo.Insert err")
+			l.Error().Err(err).Msg("[Shorten] OutgoingEventRepo.Insert err")
 			return err
 		}
 
-		l.Info().Msg("[Shorten] shorten URL created")
+		l.Info().
+			Str("short_code", m.ShortCode).
+			Str("original_url", m.OriginalURL).
+			Msg("Shorten: short URL inserted")
+
+		l.Info().
+			Int64("outbox_id", oe.ID).
+			Int64("event_id", oe.Payload.EventID).
+			Str("topic", oe.Topic).
+			Msg("Shorten: outgoing event created")
 
 		return nil
 	}); err != nil {

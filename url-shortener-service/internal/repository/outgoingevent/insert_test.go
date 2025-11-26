@@ -1,4 +1,4 @@
-package kafkaoutboxevent
+package outgoingevent
 
 import (
 	"context"
@@ -17,15 +17,15 @@ import (
 func TestInsert(t *testing.T) {
 	tcs := map[string]struct {
 		fixture string
-		given   model.KafkaOutboxEvent
-		want    model.KafkaOutboxEvent
+		given   model.OutgoingEvent
+		want    model.OutgoingEvent
 		wantErr error
 	}{
 		"success": {
-			given: model.KafkaOutboxEvent{
-				ID:        -10,
-				EventType: "urlshortener.metadata.requested.v1",
-				Status:    model.KafkaOutboxEventStatusPending,
+			given: model.OutgoingEvent{
+				ID:     -10,
+				Topic:  "urlshortener.metadata.requested.v1",
+				Status: model.OutgoingEventStatusPending,
 				Payload: model.Payload{
 					EventID: -10,
 					Data: map[string]string{
@@ -34,10 +34,10 @@ func TestInsert(t *testing.T) {
 					},
 				},
 			},
-			want: model.KafkaOutboxEvent{
-				ID:        -10,
-				EventType: "urlshortener.metadata.requested.v1",
-				Status:    model.KafkaOutboxEventStatusPending,
+			want: model.OutgoingEvent{
+				ID:     -10,
+				Topic:  "urlshortener.metadata.requested.v1",
+				Status: model.OutgoingEventStatusPending,
 				Payload: model.Payload{
 					EventID: -10,
 					Data: map[string]string{
@@ -48,11 +48,11 @@ func TestInsert(t *testing.T) {
 			},
 		},
 		"fail - duplicate primary key": {
-			fixture: "testdata/kafka_outbox_events.sql",
-			given: model.KafkaOutboxEvent{
-				ID:        1,
-				EventType: "evt.duplicate",
-				Status:    model.KafkaOutboxEventStatusPending,
+			fixture: "testdata/outgoing_events.sql",
+			given: model.OutgoingEvent{
+				ID:     1,
+				Topic:  "evt.duplicate",
+				Status: model.OutgoingEventStatusPending,
 				Payload: model.Payload{
 					EventID: 1,
 				},
@@ -80,11 +80,11 @@ func TestInsert(t *testing.T) {
 					require.NoError(t, err)
 					require.True(t,
 						cmp.Equal(tc.want, actual,
-							cmpopts.IgnoreFields(model.KafkaOutboxEvent{},
+							cmpopts.IgnoreFields(model.OutgoingEvent{},
 								"CreatedAt", "UpdatedAt", "Payload")),
 						"diff: %v",
 						cmp.Diff(tc.want, actual,
-							cmpopts.IgnoreFields(model.KafkaOutboxEvent{},
+							cmpopts.IgnoreFields(model.OutgoingEvent{},
 								"CreatedAt", "UpdatedAt", "Payload")),
 					)
 
