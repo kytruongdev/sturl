@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -32,21 +33,27 @@ func NewLogger(cfg Config) Logger {
 func Log(ctx context.Context) Logger {
 	traceID, spanID := extractTraceInfo(ctx)
 	meta := transportmeta.FromContext(ctx)
-
-	builder := globalLogger.With().
-		Str("trace_id", traceID).
-		Str("span_id", spanID).
-		Str("correlation_id", meta.CorrelationID)
-
 	var reqID string
-	if reqID = meta.RequestID; reqID != "" {
+	if reqID = meta.RequestID; reqID == "" {
 		reqID = xid.New().String()
 	}
 
-	builder = builder.Str("request_id", reqID)
+	builder := globalLogger.With()
 
-	sub := builder.Logger()
-	return Logger{z: sub}
+	if traceID != "" {
+		builder = builder.Str("trace_id", traceID)
+	}
+	if spanID != "" {
+		builder = builder.Str("span_id", spanID)
+	}
+	if meta.CorrelationID != "" {
+		builder = builder.Str("correlation_id", meta.CorrelationID)
+	}
+	if reqID != "" {
+		builder = builder.Str("request_id", reqID)
+	}
+
+	return Logger{z: builder.Logger()}
 }
 
 // Info returns a zerolog event for logging at INFO level.
@@ -77,4 +84,35 @@ func (l Logger) With(fields ...Field) Logger {
 func (l Logger) TimeTrack(start time.Time, label string, fields ...Field) {
 	elapsed := time.Since(start)
 	l.With(fields...).Info().Dur("elapsed", elapsed).Msg(label)
+}
+
+func (l Logger) Field(key string, value interface{}) Logger {
+	w := l.z.With()
+
+	switch v := value.(type) {
+	case string:
+		w = w.Str(key, v)
+	case fmt.Stringer:
+		w = w.Str(key, v.String())
+	case int:
+		w = w.Int(key, v)
+	case int64:
+		w = w.Int64(key, v)
+	case uint:
+		w = w.Uint(key, v)
+	case uint64:
+		w = w.Uint64(key, v)
+	case float64:
+		w = w.Float64(key, v)
+	case bool:
+		w = w.Bool(key, v)
+	case time.Time:
+		w = w.Time(key, v)
+	case []string:
+		w = w.Strs(key, v)
+	default:
+		w = w.Interface(key, v)
+	}
+
+	return Logger{z: w.Logger()}
 }
