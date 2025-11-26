@@ -64,10 +64,67 @@ services:
       ENABLE_X_REQUEST_ID: "1"
       OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
       REQUIRES_METADATA: "X-Request-ID"
+      KAFKA_BROKERS: "kafka:9092"
+      KAFKA_CLIENT_ID: "url-shortener-producer"
     depends_on:
       - database
     networks:
       - sturl-net
+
+  producer:
+    container_name: producer
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["go", "run", "./cmd/producer"]
+    volumes:
+      - .:/app
+    environment:
+      PG_URL: postgres://postgres:postgres@database:5432/url-shortener?sslmode=disable
+      SERVER_ADDR: ":3011"
+      REDIS_ADDR: "redis:6379"
+      # PRODUCER_NAME: "url-shortener-producer"
+      SERVICE_NAME: "url-shortener"
+      LOG_LEVEL: "0"
+      APP_ENV: "local"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+      REQUIRES_METADATA: "X-Request-ID"
+      KAFKA_BROKERS: "kafka:9092"
+      KAFKA_CLIENT_ID: "url-shortener-producer"
+      MAX_RETRY: 5
+      BATCH_SIZE: 1000
+      POLLING_INTERVAL_MS: 5000
+    depends_on:
+      - database
+      - kafka
+    networks:
+      - sturl-net
+
+  kafka:
+    image: apache/kafka:4.1.0
+    container_name: kafka
+    networks:
+      - sturl-net
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      # Listeners
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      # Security mapping
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      # Auto create topics (DEV ONLY)
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # KRaft metadata log storage
+      KAFKA_CONTROLLER_QUORUM_BOOTSTRAP_SERVER: "kafka:9093"
+
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    restart: always
 
   mockery:
     image: vektra/mockery:v2.53.4
@@ -77,6 +134,7 @@ services:
 
 volumes:
   pgdata:
+  kafka_data:
 
 networks:
   sturl-net:

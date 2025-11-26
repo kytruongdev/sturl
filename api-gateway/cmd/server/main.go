@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 
 	"github.com/kytruongdev/sturl/api-gateway/internal/config"
 	"github.com/kytruongdev/sturl/api-gateway/internal/handler"
+	"github.com/kytruongdev/sturl/api-gateway/internal/infra/app"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/env"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/httpserver"
 	"github.com/kytruongdev/sturl/api-gateway/internal/infra/monitoring"
@@ -33,11 +35,20 @@ func main() {
 	// --- Setup routers
 	rtr := initRouter()
 
-	l.Info().Msg("api-gateway started")
+	l.Info().Msgf("%v started", globalCfg.ServerCfg.ServiceName)
 
 	// --- Start server
-	httpserver.Start(httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
-		globalCfg.ServerCfg)
+	svcName := globalCfg.ServerCfg.ServiceName
+	r := app.Runner{Name: svcName}
+	if err = r.Start(
+		rootCtx,
+		runner{
+			s: &http.Server{
+				Addr:    globalCfg.ServerCfg.ServerAddr,
+				Handler: httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
+			}}); err != nil {
+		l.Error().Err(err).Msgf("%v exited with error", svcName)
+	}
 }
 
 func loadGlobalConfig() config.GlobalConfig {
@@ -78,4 +89,23 @@ func initRouter() handler.Router {
 	return handler.Router{
 		CorsOrigins: []string{"*"},
 	}
+}
+
+// runner is an adapter to make http.Server implement app.Service
+type runner struct {
+	s *http.Server
+}
+
+func (h runner) Run(ctx context.Context) error {
+	// ctx is not used directly here: Shutdown will cause ListenAndServe to unblock.
+	if err := h.s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		monitoring.Log(ctx).Error().Err(err).Msg("api-gateway exited with error")
+		return err
+	}
+	return nil
+}
+
+func (h runner) Shutdown(ctx context.Context) error {
+	monitoring.Log(ctx).Warn().Msg("api-gateway exited")
+	return h.s.Shutdown(ctx)
 }

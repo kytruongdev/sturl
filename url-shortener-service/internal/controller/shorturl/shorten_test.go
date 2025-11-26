@@ -12,7 +12,7 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/id"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/kafkaoutboxevent"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/outgoingevent"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -26,7 +26,7 @@ func TestShorten(t *testing.T) {
 		mockGenShortCode         func(int) string
 		mockInsertShortURLWant   model.ShortUrl
 		mockInsertShortURLErr    error
-		mockInsertOutboxWant     model.KafkaOutboxEvent
+		mockInsertOutboxWant     model.OutgoingEvent
 		mockInsertOutboxErr      error
 		want                     model.ShortUrl
 		wantErr                  error
@@ -58,7 +58,7 @@ func TestShorten(t *testing.T) {
 				UpdatedAt:   time.Now(),
 			},
 
-			mockInsertOutboxWant: model.KafkaOutboxEvent{},
+			mockInsertOutboxWant: model.OutgoingEvent{},
 			want: model.ShortUrl{
 				ShortCode:   "gg123",
 				OriginalURL: "http://google.com",
@@ -126,7 +126,7 @@ func TestShorten(t *testing.T) {
 			}
 
 			// Mock Outbox repo
-			mockOutbox := new(kafkaoutboxevent.MockRepository)
+			mockOutbox := new(outgoingevent.MockRepository)
 			if tc.mockGetByOriginalURLErr == shorturl.ErrNotFound && tc.mockInsertShortURLErr == nil {
 				mockOutbox.On("Insert", mock.Anything, mock.Anything).
 					Return(tc.mockInsertOutboxWant, tc.mockInsertOutboxErr)
@@ -136,7 +136,7 @@ func TestShorten(t *testing.T) {
 			mockReg := new(repository.MockRegistry)
 
 			mockReg.On("ShortUrl").Return(mockShort)
-			mockReg.On("KafkaOutboxEvent").Return(mockOutbox)
+			mockReg.On("OutgoingEvent").Return(mockOutbox)
 
 			// Fake DoInTx: simply run fn
 			mockReg.On("DoInTx", mock.Anything, mock.Anything, mock.Anything).

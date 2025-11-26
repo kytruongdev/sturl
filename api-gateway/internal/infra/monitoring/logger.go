@@ -32,21 +32,27 @@ func NewLogger(cfg Config) Logger {
 func Log(ctx context.Context) Logger {
 	traceID, spanID := extractTraceInfo(ctx)
 	meta := transportmeta.FromContext(ctx)
-
-	builder := globalLogger.With().
-		Str("trace_id", traceID).
-		Str("span_id", spanID).
-		Str("correlation_id", meta.CorrelationID)
-
 	var reqID string
-	if reqID = meta.RequestID; reqID != "" {
+	if reqID = meta.RequestID; reqID == "" {
 		reqID = xid.New().String()
 	}
 
-	builder = builder.Str("request_id", reqID)
+	builder := globalLogger.With()
 
-	sub := builder.Logger()
-	return Logger{z: sub}
+	if traceID != "" {
+		builder = builder.Str("trace_id", traceID)
+	}
+	if spanID != "" {
+		builder = builder.Str("span_id", spanID)
+	}
+	if meta.CorrelationID != "" {
+		builder = builder.Str("correlation_id", meta.CorrelationID)
+	}
+	if reqID != "" {
+		builder = builder.Str("request_id", reqID)
+	}
+
+	return Logger{z: builder.Logger()}
 }
 
 // Info returns a zerolog event for logging at INFO level.
