@@ -17,9 +17,12 @@ func (i impl) Insert(ctx context.Context, m model.OutgoingEvent) (model.Outgoing
 	defer monitoring.End(span, &err)
 
 	o := orm.OutgoingEvent{
-		ID:     m.ID,
-		Topic:  m.Topic,
-		Status: m.Status.String(),
+		ID:            m.ID,
+		Topic:         m.Topic.String(),
+		Status:        m.Status.String(),
+		CorrelationID: m.CorrelationID,
+		TraceID:       m.TraceID,
+		SpanID:        m.SpanID,
 	}
 
 	o.Payload, err = m.MarshalPayload()

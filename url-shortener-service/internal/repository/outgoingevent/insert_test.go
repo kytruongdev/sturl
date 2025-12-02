@@ -24,7 +24,7 @@ func TestInsert(t *testing.T) {
 		"success": {
 			given: model.OutgoingEvent{
 				ID:     -10,
-				Topic:  "urlshortener.metadata.requested.v1",
+				Topic:  model.TopicMetadataRequestedV1,
 				Status: model.OutgoingEventStatusPending,
 				Payload: model.Payload{
 					EventID: -10,
@@ -36,7 +36,7 @@ func TestInsert(t *testing.T) {
 			},
 			want: model.OutgoingEvent{
 				ID:     -10,
-				Topic:  "urlshortener.metadata.requested.v1",
+				Topic:  model.TopicMetadataRequestedV1,
 				Status: model.OutgoingEventStatusPending,
 				Payload: model.Payload{
 					EventID: -10,

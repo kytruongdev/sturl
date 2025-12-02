@@ -25,57 +25,72 @@ import (
 
 // OutgoingEvent is an object representing the database table.
 type OutgoingEvent struct {
-	ID         int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	Payload    types.JSON  `boil:"payload" json:"payload" toml:"payload" yaml:"payload"`
-	Topic      string      `boil:"topic" json:"topic" toml:"topic" yaml:"topic"`
-	Status     string      `boil:"status" json:"status" toml:"status" yaml:"status"`
-	LastError  null.String `boil:"last_error" json:"last_error,omitempty" toml:"last_error" yaml:"last_error,omitempty"`
-	RetryCount int         `boil:"retry_count" json:"retry_count" toml:"retry_count" yaml:"retry_count"`
-	CreatedAt  time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	UpdatedAt  time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	ID            int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	Payload       types.JSON  `boil:"payload" json:"payload" toml:"payload" yaml:"payload"`
+	Topic         string      `boil:"topic" json:"topic" toml:"topic" yaml:"topic"`
+	Status        string      `boil:"status" json:"status" toml:"status" yaml:"status"`
+	LastError     null.String `boil:"last_error" json:"last_error,omitempty" toml:"last_error" yaml:"last_error,omitempty"`
+	CorrelationID string      `boil:"correlation_id" json:"correlation_id" toml:"correlation_id" yaml:"correlation_id"`
+	TraceID       string      `boil:"trace_id" json:"trace_id" toml:"trace_id" yaml:"trace_id"`
+	SpanID        string      `boil:"span_id" json:"span_id" toml:"span_id" yaml:"span_id"`
+	RetryCount    int         `boil:"retry_count" json:"retry_count" toml:"retry_count" yaml:"retry_count"`
+	CreatedAt     time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	UpdatedAt     time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 
 	R *outgoingEventR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L outgoingEventL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var OutgoingEventColumns = struct {
-	ID         string
-	Payload    string
-	Topic      string
-	Status     string
-	LastError  string
-	RetryCount string
-	CreatedAt  string
-	UpdatedAt  string
+	ID            string
+	Payload       string
+	Topic         string
+	Status        string
+	LastError     string
+	CorrelationID string
+	TraceID       string
+	SpanID        string
+	RetryCount    string
+	CreatedAt     string
+	UpdatedAt     string
 }{
-	ID:         "id",
-	Payload:    "payload",
-	Topic:      "topic",
-	Status:     "status",
-	LastError:  "last_error",
-	RetryCount: "retry_count",
-	CreatedAt:  "created_at",
-	UpdatedAt:  "updated_at",
+	ID:            "id",
+	Payload:       "payload",
+	Topic:         "topic",
+	Status:        "status",
+	LastError:     "last_error",
+	CorrelationID: "correlation_id",
+	TraceID:       "trace_id",
+	SpanID:        "span_id",
+	RetryCount:    "retry_count",
+	CreatedAt:     "created_at",
+	UpdatedAt:     "updated_at",
 }
 
 var OutgoingEventTableColumns = struct {
-	ID         string
-	Payload    string
-	Topic      string
-	Status     string
-	LastError  string
-	RetryCount string
-	CreatedAt  string
-	UpdatedAt  string
+	ID            string
+	Payload       string
+	Topic         string
+	Status        string
+	LastError     string
+	CorrelationID string
+	TraceID       string
+	SpanID        string
+	RetryCount    string
+	CreatedAt     string
+	UpdatedAt     string
 }{
-	ID:         "outgoing_events.id",
-	Payload:    "outgoing_events.payload",
-	Topic:      "outgoing_events.topic",
-	Status:     "outgoing_events.status",
-	LastError:  "outgoing_events.last_error",
-	RetryCount: "outgoing_events.retry_count",
-	CreatedAt:  "outgoing_events.created_at",
-	UpdatedAt:  "outgoing_events.updated_at",
+	ID:            "outgoing_events.id",
+	Payload:       "outgoing_events.payload",
+	Topic:         "outgoing_events.topic",
+	Status:        "outgoing_events.status",
+	LastError:     "outgoing_events.last_error",
+	CorrelationID: "outgoing_events.correlation_id",
+	TraceID:       "outgoing_events.trace_id",
+	SpanID:        "outgoing_events.span_id",
+	RetryCount:    "outgoing_events.retry_count",
+	CreatedAt:     "outgoing_events.created_at",
+	UpdatedAt:     "outgoing_events.updated_at",
 }
 
 // Generated where
@@ -256,23 +271,29 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 }
 
 var OutgoingEventWhere = struct {
-	ID         whereHelperint64
-	Payload    whereHelpertypes_JSON
-	Topic      whereHelperstring
-	Status     whereHelperstring
-	LastError  whereHelpernull_String
-	RetryCount whereHelperint
-	CreatedAt  whereHelpertime_Time
-	UpdatedAt  whereHelpertime_Time
+	ID            whereHelperint64
+	Payload       whereHelpertypes_JSON
+	Topic         whereHelperstring
+	Status        whereHelperstring
+	LastError     whereHelpernull_String
+	CorrelationID whereHelperstring
+	TraceID       whereHelperstring
+	SpanID        whereHelperstring
+	RetryCount    whereHelperint
+	CreatedAt     whereHelpertime_Time
+	UpdatedAt     whereHelpertime_Time
 }{
-	ID:         whereHelperint64{field: "\"outgoing_events\".\"id\""},
-	Payload:    whereHelpertypes_JSON{field: "\"outgoing_events\".\"payload\""},
-	Topic:      whereHelperstring{field: "\"outgoing_events\".\"topic\""},
-	Status:     whereHelperstring{field: "\"outgoing_events\".\"status\""},
-	LastError:  whereHelpernull_String{field: "\"outgoing_events\".\"last_error\""},
-	RetryCount: whereHelperint{field: "\"outgoing_events\".\"retry_count\""},
-	CreatedAt:  whereHelpertime_Time{field: "\"outgoing_events\".\"created_at\""},
-	UpdatedAt:  whereHelpertime_Time{field: "\"outgoing_events\".\"updated_at\""},
+	ID:            whereHelperint64{field: "\"outgoing_events\".\"id\""},
+	Payload:       whereHelpertypes_JSON{field: "\"outgoing_events\".\"payload\""},
+	Topic:         whereHelperstring{field: "\"outgoing_events\".\"topic\""},
+	Status:        whereHelperstring{field: "\"outgoing_events\".\"status\""},
+	LastError:     whereHelpernull_String{field: "\"outgoing_events\".\"last_error\""},
+	CorrelationID: whereHelperstring{field: "\"outgoing_events\".\"correlation_id\""},
+	TraceID:       whereHelperstring{field: "\"outgoing_events\".\"trace_id\""},
+	SpanID:        whereHelperstring{field: "\"outgoing_events\".\"span_id\""},
+	RetryCount:    whereHelperint{field: "\"outgoing_events\".\"retry_count\""},
+	CreatedAt:     whereHelpertime_Time{field: "\"outgoing_events\".\"created_at\""},
+	UpdatedAt:     whereHelpertime_Time{field: "\"outgoing_events\".\"updated_at\""},
 }
 
 // OutgoingEventRels is where relationship names are stored.
@@ -292,8 +313,8 @@ func (*outgoingEventR) NewStruct() *outgoingEventR {
 type outgoingEventL struct{}
 
 var (
-	outgoingEventAllColumns            = []string{"id", "payload", "topic", "status", "last_error", "retry_count", "created_at", "updated_at"}
-	outgoingEventColumnsWithoutDefault = []string{"id", "payload", "topic"}
+	outgoingEventAllColumns            = []string{"id", "payload", "topic", "status", "last_error", "correlation_id", "trace_id", "span_id", "retry_count", "created_at", "updated_at"}
+	outgoingEventColumnsWithoutDefault = []string{"id", "payload", "topic", "correlation_id", "trace_id", "span_id"}
 	outgoingEventColumnsWithDefault    = []string{"status", "last_error", "retry_count", "created_at", "updated_at"}
 	outgoingEventPrimaryKeyColumns     = []string{"id"}
 	outgoingEventGeneratedColumns      = []string{}
