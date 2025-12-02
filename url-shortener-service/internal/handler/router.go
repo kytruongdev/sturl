@@ -17,6 +17,8 @@ func (rtr Router) Routes(r chi.Router) {
 	r.Group(rtr.public)
 }
 
+// public registers public API routes under the /api/public prefix.
+// It sets up handlers for URL shortening and redirection endpoints.
 func (rtr Router) public(r chi.Router) {
 	const prefix = "/api/public"
 	r.Group(func(r chi.Router) {
