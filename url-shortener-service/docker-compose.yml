@@ -100,6 +100,36 @@ services:
     networks:
       - sturl-net
 
+  consumer:
+    container_name: consumer
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: [ "go", "run", "./cmd/consumer" ]
+    volumes:
+      - .:/app
+    environment:
+      PG_URL: postgres://postgres:postgres@database:5432/url-shortener?sslmode=disable
+      SERVER_ADDR: ":3011"
+      REDIS_ADDR: "redis:6379"
+
+      SERVICE_NAME: "url-shortener"
+      LOG_LEVEL: "0"
+      APP_ENV: "local"
+
+      OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+      REQUIRES_METADATA: "X-Request-ID"
+
+      KAFKA_BROKERS: "kafka:9092"
+      KAFKA_CLIENT_ID: "url-shortener-consumer"
+      KAFKA_CONSUMER_GROUP_ID: "url-shortener-consumer"
+
+    depends_on:
+      - kafka
+      - database
+    networks:
+      - sturl-net
+
   kafka:
     image: apache/kafka:4.1.0
     container_name: kafka
@@ -122,9 +152,25 @@ services:
       # KRaft metadata log storage
       KAFKA_CONTROLLER_QUORUM_BOOTSTRAP_SERVER: "kafka:9093"
 
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+
     volumes:
       - kafka_data:/var/lib/kafka/data
     restart: always
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:latest
+    container_name: redpanda-console
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_BROKERS: "kafka:9092"
+    depends_on:
+      - kafka
+    networks:
+      - sturl-net
 
   mockery:
     image: vektra/mockery:v2.53.4

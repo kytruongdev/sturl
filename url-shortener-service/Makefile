@@ -1,4 +1,4 @@
-.PHONY: create-network db migrate redis setup run down generate-orm generate-mock test reset-db boilerplate
+.PHONY: create-network db migrate redis setup run down generate-orm generate-mock test reset-db boilerplate run-producer run-consumer logs-consumer kafka-ui-up kafka-ui-down kafka-ui-restart
 
 PROJECT_NAME = url-shortener
 DB_CONTAINER = database
@@ -7,6 +7,7 @@ DB_NAME = url-shortener
 MIGRATE_CONTAINER = migrate
 SERVER_CONTAINER = server
 PRODUCER_CONTAINER = producer
+CONSUMER_CONTAINER = consumer
 REDIS_CONTAINER = redis
 KAFKA_CONTAINER=kafka
 BROKER=kafka:9092
@@ -31,6 +32,12 @@ run:
 
 run-producer:
 	docker compose -p $(PROJECT_NAME) up --build $(PRODUCER_CONTAINER)
+
+run-consumer:
+	docker compose -p $(PROJECT_NAME) up --build $(CONSUMER_CONTAINER)
+
+logs-consumer:
+	docker logs -f consumer
 
 down:
 	docker compose down
@@ -74,8 +81,12 @@ kafka-create-topic:
 	    --replication-factor 1 \
 	    || true"
 
-kafka-console:
-	docker exec -it $(KAFKA_CONTAINER) kafka-console-consumer \
-	  --topic $(TOPIC) \
-	  --bootstrap-server $(BROKER) \
-	  --from-beginning
+kafka-ui-up:
+	docker compose -p $(PROJECT_NAME) up -d redpanda-console
+
+kafka-ui-down:
+	docker compose -p $(PROJECT_NAME) stop redpanda-console
+	docker compose -p $(PROJECT_NAME) rm -f redpanda-console
+
+kafka-ui-restart:
+	docker compose -p $(PROJECT_NAME) restart redpanda-console
