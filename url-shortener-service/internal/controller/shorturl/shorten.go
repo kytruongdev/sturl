@@ -82,10 +82,15 @@ func (i impl) createShortURL(ctx context.Context, inp ShortenInput) (model.Short
 			return err
 		}
 
+		meta := monitoring.SpanMetadataFromContext(ctx)
+
 		oe, err := regRepo.OutgoingEvent().Insert(newCtx, model.OutgoingEvent{
-			ID:     newIDFunc(),
-			Topic:  "urlshortener.metadata.requested.v1",
-			Status: model.OutgoingEventStatusPending,
+			ID:            newIDFunc(),
+			Topic:         model.TopicMetadataRequestedV1,
+			Status:        model.OutgoingEventStatusPending,
+			CorrelationID: meta.CorrelationID,
+			TraceID:       meta.TraceID,
+			SpanID:        meta.SpanID,
 			Payload: model.Payload{
 				EventID:    newIDFunc(),
 				OccurredAt: time.Now().UTC(),
@@ -108,7 +113,7 @@ func (i impl) createShortURL(ctx context.Context, inp ShortenInput) (model.Short
 		l.Info().
 			Int64("outbox_id", oe.ID).
 			Int64("event_id", oe.Payload.EventID).
-			Str("topic", oe.Topic).
+			Str("topic", oe.Topic.String()).
 			Msg("Shorten: outgoing event created")
 
 		return nil

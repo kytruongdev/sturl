@@ -40,13 +40,16 @@ func (i impl) GetByStatus(ctx context.Context, status string, limit int) ([]mode
 
 func toOutgoingEventModel(o *orm.OutgoingEvent) (model.OutgoingEvent, error) {
 	m := model.OutgoingEvent{
-		ID:         o.ID,
-		Topic:      o.Topic,
-		RetryCount: o.RetryCount,
-		LastError:  o.LastError.String,
-		Status:     model.OutgoingEventStatus(o.Status),
-		CreatedAt:  o.CreatedAt,
-		UpdatedAt:  o.UpdatedAt,
+		ID:            o.ID,
+		Topic:         model.Topic(o.Topic),
+		RetryCount:    o.RetryCount,
+		LastError:     o.LastError.String,
+		CorrelationID: o.CorrelationID,
+		TraceID:       o.TraceID,
+		SpanID:        o.SpanID,
+		Status:        model.OutgoingEventStatus(o.Status),
+		CreatedAt:     o.CreatedAt,
+		UpdatedAt:     o.UpdatedAt,
 	}
 
 	if err := json.Unmarshal(o.Payload, &m.Payload); err != nil {

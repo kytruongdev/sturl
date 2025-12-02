@@ -53,7 +53,7 @@ func main() {
 	// --- Start server
 	svcName := globalCfg.ServerCfg.ServiceName
 	r := app.Runner{Name: svcName}
-	if err = r.Start(
+	if err = r.Run(
 		rootCtx,
 		runner{
 			s: &http.Server{

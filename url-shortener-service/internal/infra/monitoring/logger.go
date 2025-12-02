@@ -16,17 +16,17 @@ type Field func(zerolog.Context) zerolog.Context
 
 // Logger wraps zerolog for structured logging.
 type Logger struct {
-	z zerolog.Logger
+	z   zerolog.Logger
+	ctx zerolog.Context
 }
 
 // NewLogger constructs the base zerolog logger.
 func NewLogger(cfg Config) Logger {
 	output := zerolog.ConsoleWriter{Out: os.Stdout, NoColor: !cfg.LogPretty}
-	base := zerolog.New(output).With().Timestamp().
+	builder := zerolog.New(output).With().Timestamp().
 		Str("service", cfg.ServiceName).
-		Str("env", cfg.Env).
-		Logger()
-	return Logger{z: base}
+		Str("env", cfg.Env)
+	return Logger{z: builder.Logger(), ctx: builder}
 }
 
 // Log returns a structured logger enriched with trace and correlation data.
@@ -53,7 +53,7 @@ func Log(ctx context.Context) Logger {
 		builder = builder.Str("request_id", reqID)
 	}
 
-	return Logger{z: builder.Logger()}
+	return Logger{z: builder.Logger(), ctx: builder}
 }
 
 // Info returns a zerolog event for logging at INFO level.
@@ -86,33 +86,72 @@ func (l Logger) TimeTrack(start time.Time, label string, fields ...Field) {
 	l.With(fields...).Info().Dur("elapsed", elapsed).Msg(label)
 }
 
+func (l Logger) Fields(fields map[string]interface{}) Logger {
+	b := l.ctx
+
+	for key, value := range fields {
+		switch v := value.(type) {
+		case string:
+			b = b.Str(key, v)
+		case fmt.Stringer:
+			b = b.Str(key, v.String())
+		case int:
+			b = b.Int(key, v)
+		case int64:
+			b = b.Int64(key, v)
+		case uint:
+			b = b.Uint(key, v)
+		case uint64:
+			b = b.Uint64(key, v)
+		case float64:
+			b = b.Float64(key, v)
+		case bool:
+			b = b.Bool(key, v)
+		case time.Time:
+			b = b.Time(key, v)
+		case []string:
+			b = b.Strs(key, v)
+		default:
+			b = b.Interface(key, v)
+		}
+	}
+
+	return Logger{
+		z:   b.Logger(),
+		ctx: b,
+	}
+}
+
 func (l Logger) Field(key string, value interface{}) Logger {
-	w := l.z.With()
+	b := l.ctx
 
 	switch v := value.(type) {
 	case string:
-		w = w.Str(key, v)
+		b = b.Str(key, v)
 	case fmt.Stringer:
-		w = w.Str(key, v.String())
+		b = b.Str(key, v.String())
 	case int:
-		w = w.Int(key, v)
+		b = b.Int(key, v)
 	case int64:
-		w = w.Int64(key, v)
+		b = b.Int64(key, v)
 	case uint:
-		w = w.Uint(key, v)
+		b = b.Uint(key, v)
 	case uint64:
-		w = w.Uint64(key, v)
+		b = b.Uint64(key, v)
 	case float64:
-		w = w.Float64(key, v)
+		b = b.Float64(key, v)
 	case bool:
-		w = w.Bool(key, v)
+		b = b.Bool(key, v)
 	case time.Time:
-		w = w.Time(key, v)
+		b = b.Time(key, v)
 	case []string:
-		w = w.Strs(key, v)
+		b = b.Strs(key, v)
 	default:
-		w = w.Interface(key, v)
+		b = b.Interface(key, v)
 	}
 
-	return Logger{z: w.Logger()}
+	return Logger{
+		z:   b.Logger(),
+		ctx: b,
+	}
 }

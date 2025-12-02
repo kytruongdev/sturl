@@ -11,6 +11,7 @@ type Config struct {
 	ClientID string   // ClientID is the logical name of this producer client.
 }
 
+// NewConfig creates a new Kafka configuration from environment variables
 func NewConfig() Config {
 	return Config{
 		Brokers:  strings.Split(os.Getenv("KAFKA_BROKERS"), ","),
@@ -18,6 +19,7 @@ func NewConfig() Config {
 	}
 }
 
+// Validate checks that the Kafka configuration contains all required fields.
 func (c Config) Validate() error {
 	// TODO: validate later
 	return nil

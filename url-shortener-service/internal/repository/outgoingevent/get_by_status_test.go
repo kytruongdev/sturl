@@ -27,9 +27,12 @@ func TestGetByStatus(t *testing.T) {
 			limit:   100,
 			want: []model.OutgoingEvent{
 				{
-					ID:     1,
-					Topic:  "evt.pending.1",
-					Status: model.OutgoingEventStatusPending,
+					ID:            1,
+					Topic:         "evt.pending.1",
+					Status:        model.OutgoingEventStatusPending,
+					CorrelationID: "111222",
+					TraceID:       "bbb",
+					SpanID:        "ccc",
 					Payload: model.Payload{
 						EventID:    1,
 						OccurredAt: time.Now(),
@@ -40,9 +43,12 @@ func TestGetByStatus(t *testing.T) {
 					},
 				},
 				{
-					ID:     2,
-					Topic:  "evt.pending.2",
-					Status: model.OutgoingEventStatusPending,
+					ID:            2,
+					Topic:         "evt.pending.2",
+					Status:        model.OutgoingEventStatusPending,
+					CorrelationID: "qwerty",
+					TraceID:       "999",
+					SpanID:        "888",
 					Payload: model.Payload{
 						EventID:    2,
 						OccurredAt: time.Now(),
@@ -53,9 +59,12 @@ func TestGetByStatus(t *testing.T) {
 					},
 				},
 				{
-					ID:     3,
-					Topic:  "evt.pending.3",
-					Status: model.OutgoingEventStatusPending,
+					ID:            3,
+					Topic:         "evt.pending.3",
+					Status:        model.OutgoingEventStatusPending,
+					CorrelationID: "a1b2c3",
+					TraceID:       "xxx",
+					SpanID:        "yyy",
 					Payload: model.Payload{
 						EventID:    3,
 						OccurredAt: time.Now(),
@@ -82,9 +91,7 @@ func TestGetByStatus(t *testing.T) {
 				testutil.LoadSQLFile(t, tx, tc.fixture)
 				ctx := context.Background()
 
-				repo := New(tx)
-
-				got, err := repo.GetByStatus(ctx, tc.status, tc.limit)
+				got, err := New(tx).GetByStatus(ctx, tc.status, tc.limit)
 
 				if tc.wantErr != nil {
 					require.EqualError(t, err, tc.wantErr.Error())

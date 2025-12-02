@@ -32,6 +32,28 @@ func FromContext(ctx context.Context) Metadata {
 	return Metadata{}
 }
 
+func WithValue(ctx context.Context, key, val string) context.Context {
+	if key == "" {
+		return ctx
+	}
+
+	meta := FromContext(ctx)
+
+	switch key {
+	case "correlation_id", "X-Correlation-ID":
+		meta.CorrelationID = val
+	//case "request_id", "X-Request-ID":
+	//	meta.RequestID = val
+	default:
+		if meta.Extra == nil {
+			meta.Extra = map[string]string{}
+		}
+		meta.Extra[key] = val
+	}
+
+	return ToContext(ctx, meta)
+}
+
 // ExtractFromRequest builds a Metadata struct from the standard correlation
 // and request ID headers in the given HTTP request
 func ExtractFromRequest(r *http.Request) Metadata {

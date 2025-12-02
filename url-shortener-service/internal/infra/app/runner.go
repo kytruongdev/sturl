@@ -22,11 +22,11 @@ type Runner struct {
 	Name string // optional, can be used for logging later
 }
 
-// Start runs the service with:
+// Run runs the service with:
 // - ctx from main (does not create Background context)
 // - signal.Notify to handle SIGINT/SIGTERM
 // - graceful shutdown with 5s timeout
-func (r Runner) Start(ctx context.Context, svc Service) error {
+func (r Runner) Run(ctx context.Context, svc Service) error {
 	// Wrap the original context from main with signal handling
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
