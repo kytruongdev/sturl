@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/config"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/controller/outgoingevent"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/app"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/id"
@@ -43,12 +42,14 @@ func main() {
 	defer kafkaProducer.Close()
 
 	producer := New(
-		outgoingevent.New(repository.New(conn, nil), kafkaProducer),
-		initProducerConfig())
+		repository.New(conn, nil),
+		kafkaProducer,
+		initProducerConfig(),
+	)
 
 	// --- Start Producer
 	r := app.Runner{Name: globalCfg.KafkaCfg.ClientID}
-	if err = r.Start(rootCtx, runner{producer}); err != nil {
+	if err = r.Run(rootCtx, runner{producer}); err != nil {
 		monitoring.Log(rootCtx).Error().Err(err).Msg("outbox worker exited with error")
 	}
 }
@@ -116,8 +117,7 @@ type runner struct {
 }
 
 func (r runner) Run(ctx context.Context) error {
-	// Producer.Start(ctx) is assumed to be an infinite loop that breaks when ctx.Done.
-	return r.producer.Start(ctx)
+	return r.producer.start(ctx)
 }
 
 // Shutdown here can be a no-op because ctx cancellation will cause Start to return.
