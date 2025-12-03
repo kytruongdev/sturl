@@ -7,22 +7,32 @@ import (
 	pkgerrors "github.com/pkg/errors"
 )
 
+// OutgoingEventStatus represents the processing status of an outbox event.
 type OutgoingEventStatus string
+
+// Topic represents a Kafka topic name.
 type Topic string
 
 const (
-	OutgoingEventStatusPending   OutgoingEventStatus = "PENDING"
+	// OutgoingEventStatusPending indicates the event is waiting to be published.
+	OutgoingEventStatusPending OutgoingEventStatus = "PENDING"
+	// OutgoingEventStatusPublished indicates the event has been successfully published to Kafka.
 	OutgoingEventStatusPublished OutgoingEventStatus = "PUBLISHED"
-	OutgoingEventStatusFailed    OutgoingEventStatus = "FAILED"
+	// OutgoingEventStatusFailed indicates the event failed after max retries.
+	OutgoingEventStatusFailed OutgoingEventStatus = "FAILED"
 
+	// TopicMetadataRequestedV1 is the Kafka topic for metadata request events.
 	TopicMetadataRequestedV1 Topic = "urlshortener.metadata.requested.v1"
-	TopicMetadataCrawledV1   Topic = "urlshortener.metadata.crawled.v1"
+	// TopicMetadataCrawledV1 is the Kafka topic for metadata crawled events.
+	TopicMetadataCrawledV1 Topic = "urlshortener.metadata.crawled.v1"
 )
 
+// String returns the string representation of the outgoing event status.
 func (e OutgoingEventStatus) String() string {
 	return string(e)
 }
 
+// String returns the string representation of the topic.
 func (t Topic) String() string { return string(t) }
 
 // OutgoingEvent represents the domain-level event pushed into the outgoing event.

@@ -9,6 +9,7 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/app"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/id"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/kafka"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository"
 )
@@ -35,7 +36,10 @@ func main() {
 	conn := initDB(globalCfg)
 	defer conn.Close()
 
-	consumer := New(globalCfg.KafkaCfg, repository.New(conn, nil))
+	kafkaProducer := kafka.NewProducer(globalCfg.KafkaCfg)
+	defer kafkaProducer.Close()
+
+	consumer := New(globalCfg.KafkaCfg, repository.New(conn, nil), kafkaProducer)
 
 	appRunner := app.Runner{Name: globalCfg.KafkaCfg.ClientID + "-consumer"}
 	if err := appRunner.Run(ctx, runner{consumer: consumer}); err != nil {

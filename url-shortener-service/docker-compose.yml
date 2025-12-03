@@ -94,6 +94,7 @@ services:
       MAX_RETRY: 5
       BATCH_SIZE: 1000
       POLLING_INTERVAL_MS: 5000
+      PRODUCER_MAX_CONCURRENCY: "20"  # Process up to 20 events concurrently
     depends_on:
       - database
       - kafka
@@ -123,6 +124,13 @@ services:
       KAFKA_BROKERS: "kafka:9092"
       KAFKA_CLIENT_ID: "url-shortener-consumer"
       KAFKA_CONSUMER_GROUP_ID: "url-shortener-consumer"
+      
+      # Performance tuning
+      KAFKA_CONSUMER_WORKERS: "10"      # Number of concurrent workers
+      KAFKA_MIN_BYTES: "10000"          # 10KB - fetch at least this much
+      KAFKA_MAX_BYTES: "10485760"       # 10MB - fetch at most this much
+      KAFKA_MAX_WAIT_MS: "1000"         # Wait max 1s for MinBytes
+      KAFKA_COMMIT_BUFFER: "100"        # Batch commit every 100 messages
 
     depends_on:
       - kafka

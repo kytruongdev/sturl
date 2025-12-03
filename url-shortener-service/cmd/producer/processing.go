@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"sync"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
@@ -27,15 +28,45 @@ func (p *Producer) process(ctx context.Context) error {
 		return nil
 	}
 
-	for _, e := range events {
-		producerCtx, err := toProducerContext(e)
-		if err != nil {
-			log.Error().Err(err).Msg("[processPendingBatch] newContextFromOutbox err")
-			producerCtx = ctx
-		}
-
-		p.publishMessageToKafka(producerCtx, e)
+	// Process events concurrently with worker pool
+	// Use semaphore pattern to limit concurrent workers
+	maxConcurrency := p.config.maxConcurrency
+	if len(events) < maxConcurrency {
+		maxConcurrency = len(events)
 	}
+
+	sem := make(chan struct{}, maxConcurrency)
+	var wg sync.WaitGroup
+
+	log.Info().
+		Int("total_events", len(events)).
+		Int("max_concurrency", maxConcurrency).
+		Msg("[processPendingBatch] processing events concurrently")
+
+	for _, e := range events {
+		wg.Add(1)
+		sem <- struct{}{} // Acquire semaphore
+
+		go func(event model.OutgoingEvent) {
+			defer wg.Done()
+			defer func() { <-sem }() // Release semaphore
+
+			producerCtx, err := toProducerContext(event)
+			if err != nil {
+				log.Error().Err(err).Msg("[processPendingBatch] toProducerContext err")
+				producerCtx = ctx
+			}
+
+			p.publishMessageToKafka(producerCtx, event)
+		}(e)
+	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
+
+	log.Info().
+		Int("total_events", len(events)).
+		Msg("[processPendingBatch] batch completed")
 
 	return nil
 }
@@ -79,9 +110,9 @@ func (p *Producer) publishMessageToKafka(
 		// retry reached
 		if nextRetry > p.config.maxRetry {
 			log.Warn().
-				Int("retry", nextRetry).
+				Int("attempt", nextRetry).
 				Str("error", errMsg).
-				Msg("[publishMessageToKafka] retry count exceeded, update status FAILED and last err to db")
+				Msgf("[publishMessageToKafka] unable to publish message to topic %v after %v attempts, update status FAILED and last err to db", m.Topic.String(), p.config.maxRetry)
 			u := model.OutgoingEvent{
 				LastError: errMsg,
 				Status:    model.OutgoingEventStatusFailed,

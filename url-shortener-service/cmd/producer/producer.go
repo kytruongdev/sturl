@@ -29,6 +29,8 @@ type ProducerConfig struct {
 	// maxRetry specifies how many times the producer should retry publishing
 	// an event before marking it as FAILED.
 	maxRetry int
+	// maxConcurrency controls how many events are published concurrently.
+	maxConcurrency int
 }
 
 // New creates a new Producer instance.

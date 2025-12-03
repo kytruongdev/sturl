@@ -21,11 +21,11 @@ var newIDFunc = id.New
 func MetadataRequested(
 	repo repository.Registry,
 ) kafka.MessageHandler {
-	return kafka.HandlerFunc(func(ctx context.Context, msg kafkago.Message) error {
+	return kafka.HandlerFunc(func(ctx context.Context, msg kafkago.Message) *kafka.KafkaError {
 		var payload model.Payload
 		if err := json.Unmarshal(msg.Value, &payload); err != nil {
 			monitoring.Log(ctx).Error().Err(err).Msg("[MetadataRequested] failed to unmarshal payload")
-			return err
+			return kafka.NewKafkaError(err, false)
 		}
 
 		newCtx, err := monitoring.EnrichContextWithSpanMetadata(ctx, monitoring.SpanMetadata{
@@ -34,7 +34,7 @@ func MetadataRequested(
 			CorrelationID: payload.CorrelationID,
 		})
 		if err != nil {
-			return err
+			return kafka.NewKafkaError(err, false)
 		}
 
 		spanCtx, span := monitoring.Start(newCtx, "Consumer.ConsumeMessage | Topic: "+msg.Topic)
@@ -49,7 +49,8 @@ func MetadataRequested(
 		log.Info().Msg("[MetadataRequested] handling message")
 
 		// TODO: implement actual metadata fetching/crawling logic here.
-		time.Sleep(5 * time.Second)
+		time.Sleep(3 * time.Second)
+
 		log.Info().Msg("[MetadataRequested] [TEST] => message handled successfully")
 
 		_, err = repo.OutgoingEvent().Insert(spanCtx, model.OutgoingEvent{
@@ -67,9 +68,10 @@ func MetadataRequested(
 				},
 			},
 		})
+
 		if err != nil {
 			log.Error().Err(err).Msg("[Shorten] OutgoingEventRepo.Insert err")
-			return err
+			return kafka.NewKafkaError(err, true)
 		}
 
 		return nil

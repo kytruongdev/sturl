@@ -14,12 +14,12 @@ import (
 func MetadataCrawled(
 // TODO: inject notify service later
 ) kafka.MessageHandler {
-	return kafka.HandlerFunc(func(ctx context.Context, msg kafkago.Message) error {
+	return kafka.HandlerFunc(func(ctx context.Context, msg kafkago.Message) *kafka.KafkaError {
 		var payload model.Payload
 		if err := json.Unmarshal(msg.Value, &payload); err != nil {
 			monitoring.Log(ctx).Error().Err(err).
 				Msg("[MetadataCrawled] failed to unmarshal payload")
-			return err
+			return kafka.NewKafkaError(err, false)
 		}
 
 		// Rebuild tracing/correlation context
@@ -29,7 +29,7 @@ func MetadataCrawled(
 			CorrelationID: payload.CorrelationID,
 		})
 		if err != nil {
-			return err
+			return kafka.NewKafkaError(err, false)
 		}
 
 		spanCtx, span := monitoring.Start(newCtx, "Consumer.ConsumeMessage | Topic: "+msg.Topic)
@@ -45,7 +45,7 @@ func MetadataCrawled(
 
 		if err = notifyMetadataCrawled(spanCtx); err != nil {
 			log.Error().Err(err).Msg("[MetadataCrawled] failed to notify user")
-			return err
+			return kafka.NewKafkaError(err, true)
 		}
 
 		log.Info().Msg("[MetadataCrawled] notification success")
