@@ -22,7 +22,7 @@ func ToContext(ctx context.Context, m Metadata) context.Context {
 }
 
 // FromContext retrieves Metadata from the given context.
-// If no metadata is present, it returns an empty Metadata struct.
+// If no metadata is present, returns an empty Metadata struct.
 func FromContext(ctx context.Context) Metadata {
 	if v := ctx.Value(ctxKey{}); v != nil {
 		if m, ok := v.(Metadata); ok {
@@ -32,6 +32,8 @@ func FromContext(ctx context.Context) Metadata {
 	return Metadata{}
 }
 
+// WithValue adds or updates a key-value pair in the context's metadata.
+// It handles special keys like correlation_id and stores others in the Extra map.
 func WithValue(ctx context.Context, key, val string) context.Context {
 	if key == "" {
 		return ctx
@@ -55,7 +57,7 @@ func WithValue(ctx context.Context, key, val string) context.Context {
 }
 
 // ExtractFromRequest builds a Metadata struct from the standard correlation
-// and request ID headers in the given HTTP request
+// and request ID headers in the given HTTP request.
 func ExtractFromRequest(r *http.Request) Metadata {
 	return Metadata{
 		CorrelationID: r.Header.Get("X-Correlation-ID"),

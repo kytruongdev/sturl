@@ -73,13 +73,19 @@ kafka-topics:
 	docker exec -it $(KAFKA_CONTAINER) kafka-topics --list --bootstrap-server $(BROKER)
 
 kafka-create-topic:
-	docker exec kafka sh -c "\
-	  kafka-topics --bootstrap-server kafka:9092 \
-	    --create \
-	    --topic urlshortener.metadata.requested.v1 \
-	    --partitions 1 \
-	    --replication-factor 1 \
-	    || true"
+	@[ -n "$(topic)" ] || (echo "Missing TOPIC. Use: make kafka-create-topic topic=your.topic.name" && exit 1)
+
+	@echo "Checking if topic '$(topic)' exists..."
+	@if docker exec kafka /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server kafka:9092 | grep -q "^$(topic)$$"; then \
+		echo "Topic '$(topic)' already exists — skipping creation."; \
+	else \
+		echo "Creating topic '$(topic)'..."; \
+		docker exec kafka /opt/kafka/bin/kafka-topics.sh --create \
+			--topic $(topic) \
+			--bootstrap-server kafka:9092 \
+			--partitions 1 \
+			--replication-factor 1; \
+	fi
 
 kafka-ui-up:
 	docker compose -p $(PROJECT_NAME) up -d redpanda-console

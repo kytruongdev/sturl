@@ -80,10 +80,19 @@ func initProducerConfig() ProducerConfig {
 		panic(err)
 	}
 
+	// Parse max concurrency (default: 20)
+	mc := 20
+	if mcEnv := os.Getenv("PRODUCER_MAX_CONCURRENCY"); mcEnv != "" {
+		if val, err := strconv.Atoi(mcEnv); err == nil && val > 0 {
+			mc = val
+		}
+	}
+
 	return ProducerConfig{
 		pollingInterval: time.Duration(pim) * time.Millisecond,
 		batchSize:       bs,
 		maxRetry:        mr,
+		maxConcurrency:  mc,
 	}
 }
 
