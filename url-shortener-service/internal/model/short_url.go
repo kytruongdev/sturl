@@ -29,6 +29,7 @@ type ShortUrl struct {
 	ShortCode   string
 	OriginalURL string
 	Status      ShortUrlStatus
+	Metadata    UrlMetadata
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

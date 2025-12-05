@@ -66,10 +66,7 @@ func (i impl) Shorten(ctx context.Context, inp ShortenInput) (model.ShortUrl, er
 func (i impl) createShortURL(ctx context.Context, inp ShortenInput) (model.ShortUrl, error) {
 	var m model.ShortUrl
 	var err error
-	spanCtx, span := monitoring.Start(ctx, "Repository.DoInTx")
-	defer monitoring.End(span, &err)
-
-	if err := i.repo.DoInTx(spanCtx, nil, func(newCtx context.Context, regRepo repository.Registry) error {
+	if err := i.repo.DoInTx(ctx, nil, func(newCtx context.Context, regRepo repository.Registry) error {
 		l := monitoring.Log(newCtx)
 		m, err = regRepo.ShortUrl().Insert(newCtx, model.ShortUrl{
 			OriginalURL: inp.OriginalURL,

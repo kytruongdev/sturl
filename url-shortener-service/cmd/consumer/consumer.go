@@ -5,11 +5,11 @@ import (
 	"context"
 	"os"
 
+	shortUrlCtrl "github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/handler/kafka"
 	infraKafka "github.com/kytruongdev/sturl/url-shortener-service/internal/infra/kafka"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
-	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository"
 )
 
 // Consumer manages multiple Kafka consumers for different topics.
@@ -22,14 +22,15 @@ type Consumer struct {
 // New creates a new Consumer instance with handlers for all configured topics.
 // It reads the consumer group ID from the KAFKA_CONSUMER_GROUP_ID environment variable
 // and initializes consumers for metadata requested and crawled events.
-func New(cfg infraKafka.Config, repo repository.Registry, producer infraKafka.Producer) Consumer {
+func New(cfg infraKafka.Config, shortURLCtrl shortUrlCtrl.Controller, producer infraKafka.Producer) Consumer {
+
 	groupID := os.Getenv("KAFKA_CONSUMER_GROUP_ID")
 	consumers := make(map[string]infraKafka.Consumer)
 	consumers[model.TopicMetadataRequestedV1.String()] = infraKafka.NewConsumer(
 		cfg,
 		model.TopicMetadataRequestedV1.String(),
 		groupID,
-		kafka.MetadataRequested(repo),
+		kafka.MetadataRequested(shortURLCtrl),
 		producer,
 	)
 	consumers[model.TopicMetadataCrawledV1.String()] = infraKafka.NewConsumer(

@@ -54,7 +54,11 @@ func (i impl) GetByShortCode(ctx context.Context, shortCode string) (model.Short
 	}
 
 	// Step 3: Update cache with the fetched data for future requests
-	m := toShortUrlModel(*o)
+	m, err := toShortUrlModel(*o)
+	if err != nil {
+		return model.ShortUrl{}, err
+	}
+
 	val, err = json.Marshal(m)
 	if err != nil {
 		l.Error().Err(err).Msg("[GetByShortCode] json.Marshal err")

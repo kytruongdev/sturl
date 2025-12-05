@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aarondl/null/v8"
 	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/aarondl/sqlboiler/v4/queries"
 	"github.com/aarondl/sqlboiler/v4/queries/qm"
@@ -28,6 +29,7 @@ type ShortURL struct {
 	Status      string    `boil:"status" json:"status" toml:"status" yaml:"status"`
 	CreatedAt   time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt   time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	Metadata    null.JSON `boil:"metadata" json:"metadata,omitempty" toml:"metadata" yaml:"metadata,omitempty"`
 
 	R *shortURLR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L shortURLL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -39,12 +41,14 @@ var ShortURLColumns = struct {
 	Status      string
 	CreatedAt   string
 	UpdatedAt   string
+	Metadata    string
 }{
 	ShortCode:   "short_code",
 	OriginalURL: "original_url",
 	Status:      "status",
 	CreatedAt:   "created_at",
 	UpdatedAt:   "updated_at",
+	Metadata:    "metadata",
 }
 
 var ShortURLTableColumns = struct {
@@ -53,15 +57,41 @@ var ShortURLTableColumns = struct {
 	Status      string
 	CreatedAt   string
 	UpdatedAt   string
+	Metadata    string
 }{
 	ShortCode:   "short_urls.short_code",
 	OriginalURL: "short_urls.original_url",
 	Status:      "short_urls.status",
 	CreatedAt:   "short_urls.created_at",
 	UpdatedAt:   "short_urls.updated_at",
+	Metadata:    "short_urls.metadata",
 }
 
 // Generated where
+
+type whereHelpernull_JSON struct{ field string }
+
+func (w whereHelpernull_JSON) EQ(x null.JSON) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, false, x)
+}
+func (w whereHelpernull_JSON) NEQ(x null.JSON) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, true, x)
+}
+func (w whereHelpernull_JSON) LT(x null.JSON) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpernull_JSON) LTE(x null.JSON) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpernull_JSON) GT(x null.JSON) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpernull_JSON) GTE(x null.JSON) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
+func (w whereHelpernull_JSON) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpernull_JSON) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
 
 var ShortURLWhere = struct {
 	ShortCode   whereHelperstring
@@ -69,12 +99,14 @@ var ShortURLWhere = struct {
 	Status      whereHelperstring
 	CreatedAt   whereHelpertime_Time
 	UpdatedAt   whereHelpertime_Time
+	Metadata    whereHelpernull_JSON
 }{
 	ShortCode:   whereHelperstring{field: "\"short_urls\".\"short_code\""},
 	OriginalURL: whereHelperstring{field: "\"short_urls\".\"original_url\""},
 	Status:      whereHelperstring{field: "\"short_urls\".\"status\""},
 	CreatedAt:   whereHelpertime_Time{field: "\"short_urls\".\"created_at\""},
 	UpdatedAt:   whereHelpertime_Time{field: "\"short_urls\".\"updated_at\""},
+	Metadata:    whereHelpernull_JSON{field: "\"short_urls\".\"metadata\""},
 }
 
 // ShortURLRels is where relationship names are stored.
@@ -94,9 +126,9 @@ func (*shortURLR) NewStruct() *shortURLR {
 type shortURLL struct{}
 
 var (
-	shortURLAllColumns            = []string{"short_code", "original_url", "status", "created_at", "updated_at"}
+	shortURLAllColumns            = []string{"short_code", "original_url", "status", "created_at", "updated_at", "metadata"}
 	shortURLColumnsWithoutDefault = []string{"short_code", "original_url", "status"}
-	shortURLColumnsWithDefault    = []string{"created_at", "updated_at"}
+	shortURLColumnsWithDefault    = []string{"created_at", "updated_at", "metadata"}
 	shortURLPrimaryKeyColumns     = []string{"short_code"}
 	shortURLGeneratedColumns      = []string{}
 )
