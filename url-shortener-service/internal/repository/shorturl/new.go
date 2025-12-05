@@ -14,6 +14,7 @@ type Repository interface {
 	GetByOriginalURL(context.Context, string) (model.ShortUrl, error)
 	GetByShortCode(context.Context, string) (model.ShortUrl, error)
 	Insert(context.Context, model.ShortUrl) (model.ShortUrl, error)
+	Update(context.Context, model.ShortUrl, string) error
 }
 
 // impl is the implementation of the repository

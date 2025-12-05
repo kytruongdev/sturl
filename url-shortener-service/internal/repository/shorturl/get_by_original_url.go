@@ -53,7 +53,11 @@ func (i impl) GetByOriginalURL(ctx context.Context, originalURL string) (model.S
 	}
 
 	// Step 3: Update cache with the fetched data for future requests
-	m := toShortUrlModel(*o)
+	m, err := toShortUrlModel(*o)
+	if err != nil {
+		return model.ShortUrl{}, err
+	}
+
 	b, err := json.Marshal(m)
 	if err != nil {
 		l.Error().Err(err).Msg("[GetByOriginalURL] json.Marshal err")

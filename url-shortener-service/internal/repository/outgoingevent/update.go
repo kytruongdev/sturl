@@ -5,6 +5,7 @@ import (
 
 	"github.com/aarondl/null/v8"
 	"github.com/aarondl/sqlboiler/v4/boil"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/orm"
 	pkgerrors "github.com/pkg/errors"
@@ -14,6 +15,10 @@ import (
 // based on which fields in the model have meaningful values.
 // Only fields explicitly set by the caller will be updated.
 func (i impl) Update(ctx context.Context, m model.OutgoingEvent, id int64) error {
+	var err error
+	ctx, span := monitoring.Start(ctx, "OutgoingEventRepository.Update")
+	defer monitoring.End(span, &err)
+
 	current, err := orm.FindOutgoingEvent(ctx, i.db, id)
 	if err != nil {
 		return pkgerrors.WithStack(err)

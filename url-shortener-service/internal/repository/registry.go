@@ -8,6 +8,7 @@ import (
 	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/outgoingevent"
 	redisRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/redis"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
@@ -63,7 +64,11 @@ func (i impl) DoInTx(ctx context.Context, backoffPolicy backoff.BackOff, fn func
 		backoffPolicy = pg.ExponentialBackOff(3, time.Minute)
 	}
 
-	return pg.TxWithBackoff(ctx, i.db, backoffPolicy, func(ctx context.Context, tx boil.ContextExecutor) error {
+	var err error
+	spanCtx, span := monitoring.Start(ctx, "Repository.DoInTx")
+	defer monitoring.End(span, &err)
+
+	return pg.TxWithBackoff(spanCtx, i.db, backoffPolicy, func(ctx context.Context, tx boil.ContextExecutor) error {
 		return fn(ctx, impl{
 			tx:            tx,
 			shortUrl:      shorturl.New(tx, i.redisClient),
