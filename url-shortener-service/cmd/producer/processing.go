@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
@@ -95,6 +96,8 @@ func (p *Producer) publishMessageToKafka(
 	m.Payload.CorrelationID = m.CorrelationID
 	m.Payload.TraceID = m.TraceID
 	m.Payload.SpanID = m.SpanID
+
+	fmt.Printf("[publishMessageToKafka] payload: %+v\n", m)
 
 	payload, err := json.Marshal(m.Payload)
 	if err != nil {

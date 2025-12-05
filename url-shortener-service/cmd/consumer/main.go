@@ -6,16 +6,19 @@ import (
 	"log"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/config"
+	shortUrlCtrl "github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/app"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/db/pg"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/id"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/kafka"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/monitoring"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository"
+	redisRepo "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/redis"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
-	ctx := context.Background()
+	rootCtx := context.Background()
 
 	globalCfg := config.NewGlobalConfig()
 	if err := globalCfg.Validate(); err != nil {
@@ -26,11 +29,11 @@ func main() {
 		panic(err)
 	}
 
-	shutdown, err := monitoring.Init(ctx, globalCfg.MonitoringCfg)
+	shutdown, err := monitoring.Init(rootCtx, globalCfg.MonitoringCfg)
 	if err != nil {
 		panic(err)
 	}
-	defer shutdown(ctx)
+	defer shutdown(rootCtx)
 
 	// --- Setup db
 	conn := initDB(globalCfg)
@@ -39,11 +42,17 @@ func main() {
 	kafkaProducer := kafka.NewProducer(globalCfg.KafkaCfg)
 	defer kafkaProducer.Close()
 
-	consumer := New(globalCfg.KafkaCfg, repository.New(conn, nil), kafkaProducer)
+	// --- Setup redis
+	redisClient := initRedis(rootCtx, globalCfg)
+
+	repo := repository.New(conn, redisClient)
+	shortURLCtrl := shortUrlCtrl.New(repo)
+
+	consumer := New(globalCfg.KafkaCfg, shortURLCtrl, kafkaProducer)
 
 	appRunner := app.Runner{Name: globalCfg.KafkaCfg.ClientID + "-consumer"}
-	if err := appRunner.Run(ctx, runner{consumer: consumer}); err != nil {
-		monitoring.Log(ctx).Error().Err(err).Msg("consumer exited with error")
+	if err := appRunner.Run(rootCtx, runner{consumer: consumer}); err != nil {
+		monitoring.Log(rootCtx).Error().Err(err).Msg("consumer exited with error")
 	}
 }
 
@@ -54,6 +63,19 @@ func initDB(cfg config.GlobalConfig) *sql.DB {
 	}
 
 	return conn
+}
+
+func initRedis(ctx context.Context, cfg config.GlobalConfig) redisRepo.RedisClient {
+	redisClient, err := redisRepo.NewRedisClient(ctx, &redis.Options{
+		Addr: cfg.ServerCfg.RedisAddr,
+		DB:   0,
+	})
+
+	if err != nil {
+		log.Fatal("[initRedis] err: ", err)
+	}
+
+	return redisClient
 }
 
 type runner struct {
