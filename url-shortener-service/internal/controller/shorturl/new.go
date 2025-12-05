@@ -12,6 +12,7 @@ import (
 type Controller interface {
 	Shorten(context.Context, ShortenInput) (model.ShortUrl, error)
 	Retrieve(context.Context, string) (model.ShortUrl, error)
+	CrawlURLMetadata(ctx context.Context, shortCode string) (model.UrlMetadata, error)
 }
 
 // impl is the implementation of the controller
