@@ -18,6 +18,7 @@ type RedisClient interface {
 	GetString(ctx context.Context, key string) (string, error)
 	GetBytes(ctx context.Context, key string) ([]byte, error)
 	Set(ctx context.Context, key string, value interface{}, ttl time.Duration) *redis.StatusCmd
+	Ping(ctx context.Context) *redis.StatusCmd
 }
 type impl struct {
 	redis *redis.Client

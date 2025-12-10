@@ -101,7 +101,7 @@ func initMonitoring(ctx context.Context, cfg monitoring.Config) (func(context.Co
 		ServiceName:     cfg.ServiceName,
 		Env:             cfg.Env,
 		OTLPEndpointURL: cfg.OTLPEndpointURL,
-		LogPretty:       true,
+		LogPretty:       os.Getenv("LOG_PRETTY") == "true",
 	})
 
 	if err != nil {
