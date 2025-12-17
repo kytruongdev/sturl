@@ -20,8 +20,6 @@ type Consumer struct {
 }
 
 // New creates a new Consumer instance with handlers for all configured topics.
-// It reads the consumer group ID from the KAFKA_CONSUMER_GROUP_ID environment variable
-// and initializes consumers for metadata requested and crawled events.
 func New(cfg infraKafka.Config, shortURLCtrl shortUrlCtrl.Controller, producer infraKafka.Producer) Consumer {
 	consumers := make(map[string]infraKafka.Consumer)
 	consumers[model.TopicMetadataRequestedV1.String()] = infraKafka.NewConsumer(

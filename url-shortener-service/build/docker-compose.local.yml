@@ -121,9 +121,8 @@ services:
 
       KAFKA_BROKERS: "kafka:9092"
       KAFKA_CLIENT_ID: "url-shortener-consumer"
-      KAFKA_CONSUMER_GROUP_ID: "url-shortener-consumer"
-      METADATA_REQUESTED_CONSUMER_GROUP : "metadata-requested-consumer"
-      METADATA_CRAWLED_CONSUMER_GROUP : "metadata-crawled-consumer"
+      METADATA_REQUESTED_CONSUMER_GROUP : "metadata.requested.consumer"
+      METADATA_CRAWLED_CONSUMER_GROUP : "metadata.crawled.consumer"
 
       # Performance tuning
       KAFKA_CONSUMER_WORKERS: "10"      # Number of concurrent workers
