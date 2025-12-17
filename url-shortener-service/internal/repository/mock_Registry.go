@@ -9,6 +9,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	outgoingevent "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/outgoingevent"
+
 	shorturl "github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 )
 
@@ -17,9 +19,9 @@ type MockRegistry struct {
 	mock.Mock
 }
 
-// DoInTx provides a mock function with given fields: ctx, policy, fn
-func (_m *MockRegistry) DoInTx(ctx context.Context, policy backoff.BackOff, fn func(context.Context, Registry) error) error {
-	ret := _m.Called(ctx, policy, fn)
+// DoInTx provides a mock function with given fields: ctx, backoffPolicy, fn
+func (_m *MockRegistry) DoInTx(ctx context.Context, backoffPolicy backoff.BackOff, fn func(context.Context, Registry) error) error {
+	ret := _m.Called(ctx, backoffPolicy, fn)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DoInTx")
@@ -27,9 +29,29 @@ func (_m *MockRegistry) DoInTx(ctx context.Context, policy backoff.BackOff, fn f
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, backoff.BackOff, func(context.Context, Registry) error) error); ok {
-		r0 = rf(ctx, policy, fn)
+		r0 = rf(ctx, backoffPolicy, fn)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// OutgoingEvent provides a mock function with no fields
+func (_m *MockRegistry) OutgoingEvent() outgoingevent.Repository {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for OutgoingEvent")
+	}
+
+	var r0 outgoingevent.Repository
+	if rf, ok := ret.Get(0).(func() outgoingevent.Repository); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(outgoingevent.Repository)
+		}
 	}
 
 	return r0

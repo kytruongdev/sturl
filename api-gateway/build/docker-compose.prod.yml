@@ -1,0 +1,23 @@
+services:
+  gateway:
+    container_name: gateway
+    image: api-gateway:1.0.0
+    command: [ "/app/api-gateway" ]
+    ports:
+      - "3010:3010"
+    environment:
+      SERVER_ADDR: ":3010"
+      SERVICE_NAME: "api-gateway"
+      URL_SHORTENER_SERVICE_NAME: "url-shortener"
+      URL_SHORTENER_URL: "http://server:3011"
+      LOG_LEVEL: "0"
+      APP_ENV: "prod"
+      ENABLE_X_CORRELATION_ID: "1"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+      REQUIRES_METADATA: "X-Correlation-ID"
+    networks:
+      - sturl-net
+
+networks:
+  sturl-net:
+    external: true

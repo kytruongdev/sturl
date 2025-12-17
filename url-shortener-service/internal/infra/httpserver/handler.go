@@ -9,11 +9,13 @@ import (
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/transportmeta"
 )
 
-// Handler builds the root chi.Router with middlewares and routes
-func Handler(
+// HandlerWithHealth builds the root chi.Router with middlewares, routes, and health checks.
+// Use this when you need to pass database and Redis clients for readiness checks.
+func HandlerWithHealth(
 	corsConf CORSConfig,
 	transportMetaConf transportmeta.Config,
 	routerFn func(r chi.Router),
+	readinessCfg ReadinessConfig,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -28,7 +30,9 @@ func Handler(
 		MaxAge:           corsConf.maxAge, // Maximum value not ignored by any of major browsers
 	}).Handler)
 
+	// Health check endpoints
 	r.Get("/", checkLiveness)
+	r.Get("/health/ready", checkReadiness(readinessCfg))
 
 	r.Group(routerFn)
 

@@ -12,7 +12,7 @@ import (
 // Retrieve retrieves the original URL associated with the given short code.
 func (i impl) Retrieve(ctx context.Context, shortCode string) (model.ShortUrl, error) {
 	var err error
-	ctx, span := monitoring.Start(ctx, "Controller.Retrieve")
+	ctx, span := monitoring.Start(ctx, "ShortURLController.Retrieve")
 	defer monitoring.End(span, &err)
 
 	l := monitoring.Log(ctx)

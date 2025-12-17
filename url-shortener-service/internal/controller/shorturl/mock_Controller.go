@@ -14,6 +14,34 @@ type MockController struct {
 	mock.Mock
 }
 
+// CrawlURLMetadata provides a mock function with given fields: ctx, shortCode
+func (_m *MockController) CrawlURLMetadata(ctx context.Context, shortCode string) (model.UrlMetadata, error) {
+	ret := _m.Called(ctx, shortCode)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CrawlURLMetadata")
+	}
+
+	var r0 model.UrlMetadata
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (model.UrlMetadata, error)); ok {
+		return rf(ctx, shortCode)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) model.UrlMetadata); ok {
+		r0 = rf(ctx, shortCode)
+	} else {
+		r0 = ret.Get(0).(model.UrlMetadata)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, shortCode)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Retrieve provides a mock function with given fields: _a0, _a1
 func (_m *MockController) Retrieve(_a0 context.Context, _a1 string) (model.ShortUrl, error) {
 	ret := _m.Called(_a0, _a1)

@@ -18,13 +18,13 @@ import (
 // This optimizes read performance by reducing database load for frequently accessed URLs.
 func (i impl) GetByShortCode(ctx context.Context, shortCode string) (model.ShortUrl, error) {
 	var err error
-	ctx, span := monitoring.Start(ctx, "Repository.GetByShortCode")
+	ctx, span := monitoring.Start(ctx, "ShortURLRepository.GetByShortCode")
 	defer monitoring.End(span, &err)
 
 	l := monitoring.Log(ctx)
 
 	cacheKey := fmt.Sprintf("%s%s", cacheKeyShortURL, shortCode)
-	
+
 	// Step 1: Try to fetch from Redis cache first (cache-aside pattern)
 	val, err := i.redisClient.GetBytes(ctx, cacheKey)
 	if err == nil {
@@ -54,7 +54,11 @@ func (i impl) GetByShortCode(ctx context.Context, shortCode string) (model.Short
 	}
 
 	// Step 3: Update cache with the fetched data for future requests
-	m := toShortUrlModel(*o)
+	m, err := toShortUrlModel(*o)
+	if err != nil {
+		return model.ShortUrl{}, err
+	}
+
 	val, err = json.Marshal(m)
 	if err != nil {
 		l.Error().Err(err).Msg("[GetByShortCode] json.Marshal err")

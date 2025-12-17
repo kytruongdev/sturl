@@ -17,7 +17,7 @@ type Config struct {
 // NewConfig creates a new monitoring configuration from environment variables.
 func NewConfig() Config {
 	return Config{
-		LogPretty:       true,
+		LogPretty:       os.Getenv("LOG_PRETTY") == "true",
 		OTLPEndpointURL: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		LogLevel:        os.Getenv("LOG_LEVEL"),
 		ServiceName:     os.Getenv("SERVICE_NAME"),

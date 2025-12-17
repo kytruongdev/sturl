@@ -3,6 +3,7 @@ package pg
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/XSAM/otelsql"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -29,6 +30,11 @@ func Connect(dbURL string) (*sql.DB, error) {
 	if err := db.PingContext(context.Background()); err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
+
+	db.SetMaxOpenConns(25)                 // Max connections to DB
+	db.SetMaxIdleConns(10)                 // Max idle connections
+	db.SetConnMaxLifetime(5 * time.Minute) // Max connection lifetime
+	db.SetConnMaxIdleTime(2 * time.Minute) // Max idle time
 
 	return db, nil
 }

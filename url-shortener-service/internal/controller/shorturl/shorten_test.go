@@ -9,8 +9,10 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/infra/id"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/model"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository"
+	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/outgoingevent"
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/repository/shorturl"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -18,86 +20,80 @@ import (
 
 func TestShorten(t *testing.T) {
 	tcs := map[string]struct {
-		inp                       ShortenInput
-		mockGetByOriginalURLInput string
-		mockGetByOriginalURLWant  model.ShortUrl
-		mockGetByOriginalURLErr   error
-		mockGenShortCode          func(int) string
-		mockInsertInput           model.ShortUrl
-		mockInsertWant            model.ShortUrl
-		mockInsertErr             error
-		want                      model.ShortUrl
-		wantErr                   error
+		inp                      ShortenInput
+		mockGetByOriginalURLWant model.ShortUrl
+		mockGetByOriginalURLErr  error
+		mockGenShortCode         func(int) string
+		mockInsertShortURLWant   model.ShortUrl
+		mockInsertShortURLErr    error
+		mockInsertOutboxWant     model.OutgoingEvent
+		mockInsertOutboxErr      error
+		want                     model.ShortUrl
+		wantErr                  error
 	}{
 		"success - existing url": {
-			mockGetByOriginalURLInput: "http://google.com",
-			inp: ShortenInput{
-				OriginalURL: "http://google.com",
-			},
+			inp: ShortenInput{OriginalURL: "http://google.com"},
 			mockGetByOriginalURLWant: model.ShortUrl{
 				ShortCode:   "gg123",
 				OriginalURL: "http://google.com",
 				Status:      model.ShortUrlStatusActive,
-				CreatedAt:   time.Now(),
-				UpdatedAt:   time.Now(),
 			},
+			mockGetByOriginalURLErr: nil,
 			want: model.ShortUrl{
 				ShortCode:   "gg123",
 				OriginalURL: "http://google.com",
 				Status:      model.ShortUrlStatusActive,
 			},
 		},
-		"success - shortened url": {
-			mockGetByOriginalURLInput: "http://google.com",
-			inp: ShortenInput{
-				OriginalURL: "http://google.com",
-			},
+
+		"success - new shortened url": {
+			inp:                     ShortenInput{OriginalURL: "http://google.com"},
 			mockGetByOriginalURLErr: shorturl.ErrNotFound,
-			mockGenShortCode: func(originalURL int) string {
-				return "gg123"
-			},
-			mockInsertInput: model.ShortUrl{
-				ShortCode:   "gg123",
-				OriginalURL: "http://google.com",
-				Status:      model.ShortUrlStatusActive,
-			},
-			mockInsertWant: model.ShortUrl{
+			mockGenShortCode:        func(_ int) string { return "gg123" },
+			mockInsertShortURLWant: model.ShortUrl{
 				ShortCode:   "gg123",
 				OriginalURL: "http://google.com",
 				Status:      model.ShortUrlStatusActive,
 				CreatedAt:   time.Now(),
 				UpdatedAt:   time.Now(),
 			},
+
+			mockInsertOutboxWant: model.OutgoingEvent{},
 			want: model.ShortUrl{
 				ShortCode:   "gg123",
 				OriginalURL: "http://google.com",
 				Status:      model.ShortUrlStatusActive,
 			},
 		},
-		"fail - get by original url return error": {
-			mockGetByOriginalURLInput: "http://google.com",
-			inp: ShortenInput{
-				OriginalURL: "http://google.com",
-			},
-			mockGetByOriginalURLErr: errors.New("some error"),
-			wantErr:                 errors.New("some error"),
+
+		"fail - getByOriginal returns error": {
+			inp:                     ShortenInput{OriginalURL: "http://google.com"},
+			mockGetByOriginalURLErr: errors.New("db error"),
+			wantErr:                 errors.New("db error"),
 		},
-		"fail - duplicated short code": {
-			mockGetByOriginalURLInput: "http://google.com",
-			inp: ShortenInput{
-				OriginalURL: "http://google.com",
-			},
+
+		"fail - insert shorturl fails": {
+			inp:                     ShortenInput{OriginalURL: "http://google.com"},
 			mockGetByOriginalURLErr: shorturl.ErrNotFound,
-			mockGenShortCode: func(originalURL int) string {
-				return "gg123"
-			},
-			mockInsertInput: model.ShortUrl{
+			mockGenShortCode:        func(_ int) string { return "gg123" },
+			mockInsertShortURLErr:   errors.New("insert shorturl failed"),
+			wantErr:                 errors.New("insert shorturl failed"),
+		},
+
+		"fail - insert outbox event fails": {
+			inp:                     ShortenInput{OriginalURL: "http://google.com"},
+			mockGetByOriginalURLErr: shorturl.ErrNotFound,
+			mockGenShortCode:        func(_ int) string { return "gg123" },
+			mockInsertShortURLWant: model.ShortUrl{
 				ShortCode:   "gg123",
 				OriginalURL: "http://google.com",
 				Status:      model.ShortUrlStatusActive,
+				CreatedAt:   time.Now(),
+				UpdatedAt:   time.Now(),
 			},
-			mockInsertErr: errors.New("duplicated short code"),
-			wantErr:       errors.New("duplicated short code"),
+
+			mockInsertOutboxErr: errors.New("outbox insert failed"),
+			wantErr:             errors.New("outbox insert failed"),
 		},
 	}
 
@@ -105,36 +101,65 @@ func TestShorten(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 
-			generateShortCodeFunc = tc.mockGenShortCode
+			newIDFunc = func() int64 {
+				return 123
+			}
+
+			defer func() { newIDFunc = id.New }()
+
+			// Mock slug generator
+			if tc.mockGenShortCode != nil {
+				generateShortCodeFunc = tc.mockGenShortCode
+			} else {
+				generateShortCodeFunc = func(n int) string { return "ignored" }
+			}
 			defer func() { generateShortCodeFunc = generateShortCode }()
 
-			mockShortURLRepo := new(shorturl.MockRepository)
-			mockShortURLRepo.ExpectedCalls = []*mock.Call{
-				mockShortURLRepo.On("GetByOriginalURL", mock.Anything, tc.mockGetByOriginalURLInput).Return(tc.mockGetByOriginalURLWant, tc.mockGetByOriginalURLErr),
-				mockShortURLRepo.On("Insert", mock.Anything, tc.mockInsertInput).Return(tc.mockInsertWant, tc.mockInsertErr),
+			// Mock ShortURL repo
+			mockShort := new(shorturl.MockRepository)
+			mockShort.On("GetByOriginalURL", mock.Anything, tc.inp.OriginalURL).
+				Return(tc.mockGetByOriginalURLWant, tc.mockGetByOriginalURLErr)
+
+			if tc.mockGetByOriginalURLErr == shorturl.ErrNotFound {
+				mockShort.On("Insert", mock.Anything, mock.Anything).
+					Return(tc.mockInsertShortURLWant, tc.mockInsertShortURLErr)
 			}
 
-			repo := new(repository.MockRegistry)
-			repo.ExpectedCalls = []*mock.Call{
-				repo.On("ShortUrl").Return(mockShortURLRepo),
-				repo.On("DoInTx", mock.Anything, mock.Anything, mock.Anything).Return(
-					func(ctx context.Context, policy backoff.BackOff, txFunc func(newCtx context.Context, repo repository.Registry) error) error {
-						return txFunc(ctx, repo)
-					}),
+			// Mock Outbox repo
+			mockOutbox := new(outgoingevent.MockRepository)
+			if tc.mockGetByOriginalURLErr == shorturl.ErrNotFound && tc.mockInsertShortURLErr == nil {
+				mockOutbox.On("Insert", mock.Anything, mock.Anything).
+					Return(tc.mockInsertOutboxWant, tc.mockInsertOutboxErr)
 			}
 
-			i := New(repo)
+			// Mock Registry
+			mockReg := new(repository.MockRegistry)
+
+			mockReg.On("ShortUrl").Return(mockShort)
+			mockReg.On("OutgoingEvent").Return(mockOutbox)
+
+			// Fake DoInTx: simply run fn
+			mockReg.On("DoInTx", mock.Anything, mock.Anything, mock.Anything).
+				Return(func(ctx context.Context, _ backoff.BackOff, fn func(context.Context, repository.Registry) error) error {
+					return fn(ctx, mockReg)
+				})
+
+			i := New(mockReg)
+
 			actual, err := i.Shorten(ctx, tc.inp)
+
 			if tc.wantErr != nil {
 				require.EqualError(t, err, tc.wantErr.Error())
-			} else {
-				require.NoError(t, err)
-				require.True(t,
-					cmp.Equal(tc.want, actual, cmpopts.IgnoreFields(model.ShortUrl{}, "CreatedAt", "UpdatedAt")),
-					"diff: %v",
-					cmp.Diff(tc.want, actual, cmpopts.IgnoreFields(model.ShortUrl{}, "CreatedAt", "UpdatedAt")),
-				)
+				return
 			}
+
+			require.NoError(t, err)
+
+			require.True(t,
+				cmp.Equal(tc.want, actual, cmpopts.IgnoreFields(model.ShortUrl{}, "CreatedAt", "UpdatedAt")),
+				"diff: %v",
+				cmp.Diff(tc.want, actual, cmpopts.IgnoreFields(model.ShortUrl{}, "CreatedAt", "UpdatedAt")),
+			)
 		})
 	}
 }

@@ -1,0 +1,195 @@
+services:
+  database:
+    image: postgres:15
+    container_name: pg
+    environment:
+      POSTGRES_DB: url-shortener
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - sturl-net
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: migrate/migrate:v4.15.2
+    container_name: migrate-url-shortener
+    volumes:
+      - ../data/migrations:/migrations
+    networks:
+      - sturl-net
+    command:
+      [
+        "-path", "/migrations",
+        "-database", "postgres://postgres:postgres@database:5432/url-shortener?sslmode=disable",
+        "up",
+      ]
+    depends_on:
+      - database
+
+  redis:
+    image: redis:7
+    container_name: shorten-redis
+    ports:
+      - "6379:6379"
+    restart: always
+    networks:
+      - sturl-net
+
+  server:
+    container_name: server
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "3011:3011"
+    volumes:
+      - ..:/app
+    environment:
+      PG_URL: postgres://postgres:postgres@database:5432/url-shortener?sslmode=disable
+      SERVER_ADDR: ":3011"
+      REDIS_ADDR: "redis:6379"
+      SERVICE_NAME: "url-shortener"
+      LOG_LEVEL: "0"
+      APP_ENV: "local"
+      ENABLE_X_REQUEST_ID: "1"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+      REQUIRES_METADATA: "X-Request-ID"
+      KAFKA_BROKERS: "kafka:9092"
+      KAFKA_CLIENT_ID: "url-shortener-producer"
+    depends_on:
+      - database
+    networks:
+      - sturl-net
+
+  producer:
+    container_name: producer
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: ["go", "run", "./cmd/producer"]
+    volumes:
+      - ..:/app
+    environment:
+      PG_URL: postgres://postgres:postgres@database:5432/url-shortener?sslmode=disable
+      SERVER_ADDR: ":3011"
+      REDIS_ADDR: "redis:6379"
+      # PRODUCER_NAME: "url-shortener-producer"
+      SERVICE_NAME: "url-shortener"
+      LOG_LEVEL: "0"
+      APP_ENV: "local"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+      REQUIRES_METADATA: "X-Request-ID"
+      KAFKA_BROKERS: "kafka:9092"
+      KAFKA_CLIENT_ID: "url-shortener-producer"
+      MAX_RETRY: 5
+      BATCH_SIZE: 1000
+      POLLING_INTERVAL_MS: 5000
+      PRODUCER_MAX_CONCURRENCY: "20"  # Process up to 20 events concurrently
+    depends_on:
+      - database
+      - kafka
+    networks:
+      - sturl-net
+
+  consumer:
+    container_name: consumer
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: [ "go", "run", "./cmd/consumer" ]
+    volumes:
+      - ..:/app
+    environment:
+      PG_URL: postgres://postgres:postgres@database:5432/url-shortener?sslmode=disable
+      SERVER_ADDR: ":3011"
+      REDIS_ADDR: "redis:6379"
+
+      SERVICE_NAME: "url-shortener"
+      LOG_LEVEL: "0"
+      APP_ENV: "local"
+
+      OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+      REQUIRES_METADATA: "X-Request-ID"
+
+      KAFKA_BROKERS: "kafka:9092"
+      KAFKA_CLIENT_ID: "url-shortener-consumer"
+      KAFKA_CONSUMER_GROUP_ID: "url-shortener-consumer"
+      METADATA_REQUESTED_CONSUMER_GROUP : "metadata-requested-consumer"
+      METADATA_CRAWLED_CONSUMER_GROUP : "metadata-crawled-consumer"
+
+      # Performance tuning
+      KAFKA_CONSUMER_WORKERS: "10"      # Number of concurrent workers
+      KAFKA_MIN_BYTES: "10000"          # 10KB - fetch at least this much
+      KAFKA_MAX_BYTES: "10485760"       # 10MB - fetch at most this much
+      KAFKA_MAX_WAIT_MS: "1000"         # Wait max 1s for MinBytes
+      KAFKA_COMMIT_BUFFER: "100"        # Batch commit every 100 messages
+
+    depends_on:
+      - kafka
+      - database
+    networks:
+      - sturl-net
+
+  kafka:
+    image: apache/kafka:4.1.0
+    container_name: kafka
+    networks:
+      - sturl-net
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      # Listeners
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      # Security mapping
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      # Auto create topics (DEV ONLY)
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # KRaft metadata log storage
+      KAFKA_CONTROLLER_QUORUM_BOOTSTRAP_SERVER: "kafka:9093"
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    restart: always
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:latest
+    container_name: redpanda-console
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_BROKERS: "kafka:9092"
+    depends_on:
+      - kafka
+    networks:
+      - sturl-net
+
+  mockery:
+    image: vektra/mockery:v2.53.4
+    working_dir: /app
+    volumes:
+      - ..:/app
+
+volumes:
+  pgdata:
+  kafka_data:
+
+networks:
+  sturl-net:
+    external: true

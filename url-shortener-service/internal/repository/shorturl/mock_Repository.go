@@ -98,6 +98,24 @@ func (_m *MockRepository) Insert(_a0 context.Context, _a1 model.ShortUrl) (model
 	return r0, r1
 }
 
+// Update provides a mock function with given fields: _a0, _a1, _a2
+func (_m *MockRepository) Update(_a0 context.Context, _a1 model.ShortUrl, _a2 string) error {
+	ret := _m.Called(_a0, _a1, _a2)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Update")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, model.ShortUrl, string) error); ok {
+		r0 = rf(_a0, _a1, _a2)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // NewMockRepository creates a new instance of MockRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockRepository(t interface {

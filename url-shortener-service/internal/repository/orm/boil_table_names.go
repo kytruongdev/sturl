@@ -4,7 +4,9 @@
 package orm
 
 var TableNames = struct {
-	ShortUrls string
+	OutgoingEvents string
+	ShortUrls      string
 }{
-	ShortUrls: "short_urls",
+	OutgoingEvents: "outgoing_events",
+	ShortUrls:      "short_urls",
 }

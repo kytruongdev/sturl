@@ -14,6 +14,16 @@ func Handler(
 	corsConf CORSConfig,
 	routerFn func(r chi.Router),
 ) http.Handler {
+	return HandlerWithHealth(corsConf, routerFn, ReadinessConfig{})
+}
+
+// HandlerWithHealth builds the root chi.Router with middlewares, routes, and health checks.
+// Use this when you need to pass upstream services for readiness checks.
+func HandlerWithHealth(
+	corsConf CORSConfig,
+	routerFn func(r chi.Router),
+	readinessCfg ReadinessConfig,
+) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(transportmeta.Middleware(transportmeta.NewConfig()))
@@ -27,7 +37,9 @@ func Handler(
 		MaxAge:           corsConf.maxAge, // Maximum value not ignored by any of major browsers
 	}).Handler)
 
+	// Health check endpoints
 	r.Get("/", checkLiveness)
+	r.Get("/health/ready", checkReadiness(readinessCfg))
 
 	r.Group(routerFn)
 
