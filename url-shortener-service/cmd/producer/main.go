@@ -48,8 +48,7 @@ func main() {
 	)
 
 	// --- Start Producer
-	r := app.Runner{Name: globalCfg.KafkaCfg.ClientID}
-	if err = r.Run(rootCtx, runner{producer}); err != nil {
+	if err = app.New(globalCfg.KafkaCfg.ClientID).Run(rootCtx, runner{producer}); err != nil {
 		monitoring.Log(rootCtx).Error().Err(err).Msg("outbox worker exited with error")
 	}
 }
@@ -101,7 +100,7 @@ func initMonitoring(ctx context.Context, cfg monitoring.Config) (func(context.Co
 		ServiceName:     cfg.ServiceName,
 		Env:             cfg.Env,
 		OTLPEndpointURL: cfg.OTLPEndpointURL,
-		LogPretty:       true,
+		LogPretty:       os.Getenv("LOG_PRETTY") == "true",
 	})
 
 	if err != nil {
