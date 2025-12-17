@@ -50,7 +50,7 @@ services:
       SERVER_ADDR: ":3011"
       REDIS_ADDR: "redis:6379"
       SERVICE_NAME: "url-shortener"
-      LOG_LEVEL: "0"
+      LOG_LEVEL: "1"
       APP_ENV: "prod"
       ENABLE_X_REQUEST_ID: "1"
       OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
@@ -71,7 +71,7 @@ services:
       SERVER_ADDR: ":3011"
       REDIS_ADDR: "redis:6379"
       SERVICE_NAME: "url-shortener"
-      LOG_LEVEL: "0"
+      LOG_LEVEL: "1"
       APP_ENV: "prod"
       OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
       REQUIRES_METADATA: "X-Request-ID"
@@ -97,7 +97,7 @@ services:
       REDIS_ADDR: "redis:6379"
 
       SERVICE_NAME: "url-shortener"
-      LOG_LEVEL: "0"
+      LOG_LEVEL: "1"
       APP_ENV: "prod"
 
       OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
@@ -105,9 +105,8 @@ services:
 
       KAFKA_BROKERS: "kafka:9092"
       KAFKA_CLIENT_ID: "url-shortener-consumer"
-      KAFKA_CONSUMER_GROUP_ID: "url-shortener-consumer"
-      METADATA_REQUESTED_CONSUMER_GROUP : "metadata-requested-consumer"
-      METADATA_CRAWLED_CONSUMER_GROUP : "metadata-crawled-consumer"
+      METADATA_REQUESTED_CONSUMER_GROUP : "metadata.requested.consumer"
+      METADATA_CRAWLED_CONSUMER_GROUP : "metadata.crawled.consumer"
 
       # Performance tuning
       KAFKA_CONSUMER_WORKERS: "10"      # Number of concurrent workers

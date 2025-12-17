@@ -85,23 +85,33 @@ type ReadinessConfig struct {
 // checkReadiness performs readiness checks on all configured upstream services.
 // It returns a HealthStatus with detailed check results.
 func checkReadiness(cfg ReadinessConfig) http.HandlerFunc {
-	if cfg.UpstreamServices == nil || len(cfg.UpstreamServices) <= 0 {
-		return nil
-	}
-
-	// Create HTTP client for health checks with short timeout
-	client := &http.Client{
-		Timeout: 3 * time.Second,
-		Transport: &http.Transport{
-			ResponseHeaderTimeout: 2 * time.Second,
-		},
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+
+		checks := make(map[string]string)
+		status := HealthStatus{
+			Status:    StatusHealthy,
+			Timestamp: time.Now(),
+			Checks:    checks,
+		}
+
+		if cfg.UpstreamServices == nil || len(cfg.UpstreamServices) <= 0 {
+			json.NewEncoder(w).Encode(status)
+			return
+		}
+
+		// Create HTTP client for health checks with short timeout
+		client := &http.Client{
+			Timeout: 3 * time.Second,
+			Transport: &http.Transport{
+				ResponseHeaderTimeout: 2 * time.Second,
+			},
+		}
+
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		checks := make(map[string]string)
 		allHealthy := true
 
 		// Check each upstream service
@@ -120,12 +130,6 @@ func checkReadiness(cfg ReadinessConfig) http.HandlerFunc {
 			}
 		}
 
-		status := HealthStatus{
-			Status:    StatusHealthy,
-			Timestamp: time.Now(),
-			Checks:    checks,
-		}
-
 		if !allHealthy {
 			status.Status = StatusUnhealthy
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -133,8 +137,6 @@ func checkReadiness(cfg ReadinessConfig) http.HandlerFunc {
 			w.WriteHeader(http.StatusOK)
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
 		json.NewEncoder(w).Encode(status)
 	}
 }
