@@ -132,6 +132,12 @@ func (c *readerConsumer) Start(ctx context.Context) error {
 				continue
 			}
 
+			log.Info().
+				Str("topic", msg.Topic).
+				Int("partition", msg.Partition).
+				Int64("offset", msg.Offset).
+				Msg("[KafkaConsumer] partition assigned")
+
 			// send message to workers (blocks if channel is full → natural backpressure)
 			select {
 			case msgChan <- msg:

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/config"
 	shortUrlCtrl "github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
@@ -52,14 +54,9 @@ func main() {
 
 	// --- Start server
 	svcName := globalCfg.ServerCfg.ServiceName
-	r := app.Runner{Name: svcName}
-	if err = r.Run(
+	if err = app.New(svcName).Run(
 		rootCtx,
-		runner{
-			s: &http.Server{
-				Addr:    globalCfg.ServerCfg.ServerAddr,
-				Handler: httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), globalCfg.TransportMetaCfg, rtr.Routes),
-			}}); err != nil {
+		runner{s: initHTTPServer(globalCfg, rtr, redisClient, conn)}); err != nil {
 		l.Error().Err(err).Msgf("%v exited with error", svcName)
 	}
 }
@@ -78,7 +75,7 @@ func initMonitoring(ctx context.Context, cfg monitoring.Config) (func(context.Co
 	shutdown, err := monitoring.Init(ctx, monitoring.Config{
 		ServiceName:     cfg.ServiceName,
 		Env:             cfg.Env,
-		LogPretty:       true,
+		LogPretty:       os.Getenv("LOG_PRETTY") == "true",
 		OTLPEndpointURL: cfg.OTLPEndpointURL,
 	})
 
@@ -99,9 +96,25 @@ func initDB(cfg config.GlobalConfig) *sql.DB {
 }
 
 func initRedis(ctx context.Context, cfg config.GlobalConfig) redisRepo.RedisClient {
+	const (
+		selectedDB   = 0
+		dialTimeout  = 5 * time.Second
+		readTimeout  = 3 * time.Second
+		writeTimeout = 3 * time.Second
+		poolSize     = 10
+		minIdleConns = 5
+		maxRetries   = 3
+	)
+
 	redisClient, err := redisRepo.NewRedisClient(ctx, &redis.Options{
-		Addr: cfg.ServerCfg.RedisAddr,
-		DB:   0,
+		Addr:         cfg.ServerCfg.RedisAddr,
+		DB:           selectedDB,
+		DialTimeout:  dialTimeout,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		PoolSize:     poolSize,
+		MinIdleConns: minIdleConns,
+		MaxRetries:   maxRetries,
 	})
 
 	if err != nil {
@@ -109,6 +122,32 @@ func initRedis(ctx context.Context, cfg config.GlobalConfig) redisRepo.RedisClie
 	}
 
 	return redisClient
+}
+
+func initHTTPServer(globalCfg config.GlobalConfig, rtr handler.Router, redisClient redisRepo.RedisClient, conn *sql.DB) http.Server {
+	const (
+		readTimeout    = 10 * time.Second
+		writeTimeout   = 10 * time.Second
+		idleTimeout    = 120 * time.Second
+		maxHeaderBytes = 1 << 20
+	)
+
+	return http.Server{
+		Addr: globalCfg.ServerCfg.ServerAddr,
+		Handler: httpserver.HandlerWithHealth(
+			httpserver.NewCORSConfig(rtr.CorsOrigins),
+			globalCfg.TransportMetaCfg,
+			rtr.Routes,
+			httpserver.ReadinessConfig{
+				DB:    conn,
+				Redis: redisClient,
+			},
+		),
+		ReadTimeout:    readTimeout,
+		WriteTimeout:   writeTimeout,
+		IdleTimeout:    idleTimeout,
+		MaxHeaderBytes: maxHeaderBytes,
+	}
 }
 
 func initRouter(conn *sql.DB, redisClient redisRepo.RedisClient) handler.Router {
@@ -123,7 +162,7 @@ func initRouter(conn *sql.DB, redisClient redisRepo.RedisClient) handler.Router 
 
 // runner is an adapter to make http.Server implement app.Service
 type runner struct {
-	s *http.Server
+	s http.Server
 }
 
 func (h runner) Run(ctx context.Context) error {

@@ -158,6 +158,26 @@ func (_m *MockRedisClient) GetString(ctx context.Context, key string) (string, e
 	return r0, r1
 }
 
+// Ping provides a mock function with given fields: ctx
+func (_m *MockRedisClient) Ping(ctx context.Context) *v9.StatusCmd {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Ping")
+	}
+
+	var r0 *v9.StatusCmd
+	if rf, ok := ret.Get(0).(func(context.Context) *v9.StatusCmd); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v9.StatusCmd)
+		}
+	}
+
+	return r0
+}
+
 // Set provides a mock function with given fields: ctx, key, value, ttl
 func (_m *MockRedisClient) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) *v9.StatusCmd {
 	ret := _m.Called(ctx, key, value, ttl)

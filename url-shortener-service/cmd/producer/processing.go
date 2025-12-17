@@ -106,6 +106,7 @@ func (p *Producer) publishMessageToKafka(
 	}
 
 	// publish
+	log.Info().Msg("[publishMessageToKafka] starting publishing message with topic: " + m.Topic.String())
 	if err = p.producer.Publish(spanCtx, m.Topic.String(), payload); err != nil {
 		errMsg := err.Error()
 		nextRetry := m.RetryCount + 1
@@ -141,6 +142,8 @@ func (p *Producer) publishMessageToKafka(
 		}
 		return
 	}
+
+	log.Info().Msg("[publishMessageToKafka] message published to topic: " + m.Topic.String() + " successfully")
 
 	// success
 	if err = p.repo.OutgoingEvent().Update(

@@ -23,20 +23,18 @@ type Consumer struct {
 // It reads the consumer group ID from the KAFKA_CONSUMER_GROUP_ID environment variable
 // and initializes consumers for metadata requested and crawled events.
 func New(cfg infraKafka.Config, shortURLCtrl shortUrlCtrl.Controller, producer infraKafka.Producer) Consumer {
-
-	groupID := os.Getenv("KAFKA_CONSUMER_GROUP_ID")
 	consumers := make(map[string]infraKafka.Consumer)
 	consumers[model.TopicMetadataRequestedV1.String()] = infraKafka.NewConsumer(
 		cfg,
 		model.TopicMetadataRequestedV1.String(),
-		groupID,
+		os.Getenv("METADATA_REQUESTED_CONSUMER_GROUP"),
 		kafka.MetadataRequested(shortURLCtrl),
 		producer,
 	)
 	consumers[model.TopicMetadataCrawledV1.String()] = infraKafka.NewConsumer(
 		cfg,
 		model.TopicMetadataCrawledV1.String(),
-		groupID,
+		os.Getenv("METADATA_CRAWLED_CONSUMER_GROUP"),
 		kafka.MetadataCrawled(),
 		producer,
 	)

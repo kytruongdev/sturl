@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/kytruongdev/sturl/api-gateway/internal/config"
 	"github.com/kytruongdev/sturl/api-gateway/internal/handler"
@@ -37,16 +39,11 @@ func main() {
 
 	l.Info().Msgf("%v started", globalCfg.ServerCfg.ServiceName)
 
-	// --- Start server
+	// --- Run server
 	svcName := globalCfg.ServerCfg.ServiceName
-	r := app.Runner{Name: svcName}
-	if err = r.Start(
+	if err = app.New(svcName).Run(
 		rootCtx,
-		runner{
-			s: &http.Server{
-				Addr:    globalCfg.ServerCfg.ServerAddr,
-				Handler: httpserver.Handler(httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes),
-			}}); err != nil {
+		runner{s: initHTTPServer(globalCfg, rtr)}); err != nil {
 		l.Error().Err(err).Msgf("%v exited with error", svcName)
 	}
 }
@@ -65,7 +62,7 @@ func initMonitoring(ctx context.Context, cfg monitoring.Config) (func(context.Co
 	shutdown, err := monitoring.Init(ctx, monitoring.Config{
 		ServiceName:     cfg.ServiceName,
 		Env:             cfg.Env,
-		LogPretty:       true,
+		LogPretty:       os.Getenv("LOG_PRETTY") == "true",
 		OTLPEndpointURL: cfg.OTLPEndpointURL,
 	})
 
@@ -91,9 +88,37 @@ func initRouter() handler.Router {
 	}
 }
 
+func initHTTPServer(globalCfg config.GlobalConfig, rtr handler.Router) http.Server {
+	const (
+		readTimeout    = 10 * time.Second
+		writeTimeout   = 10 * time.Second
+		idleTimeout    = 120 * time.Second
+		maxHeaderBytes = 1 << 20
+	)
+
+	// Prepare readiness config with upstream services
+	readinessCfg := httpserver.ReadinessConfig{
+		UpstreamServices: []httpserver.UpstreamServiceConfig{
+			{
+				Name:    env.GetAndValidateF("URL_SHORTENER_SERVICE_NAME"),
+				BaseURL: env.GetAndValidateF("URL_SHORTENER_URL"),
+			},
+		},
+	}
+
+	return http.Server{
+		Addr:           globalCfg.ServerCfg.ServerAddr,
+		Handler:        httpserver.HandlerWithHealth(httpserver.NewCORSConfig(rtr.CorsOrigins), rtr.Routes, readinessCfg),
+		ReadTimeout:    readTimeout,
+		WriteTimeout:   writeTimeout,
+		IdleTimeout:    idleTimeout,
+		MaxHeaderBytes: maxHeaderBytes,
+	}
+}
+
 // runner is an adapter to make http.Server implement app.Service
 type runner struct {
-	s *http.Server
+	s http.Server
 }
 
 func (h runner) Run(ctx context.Context) error {

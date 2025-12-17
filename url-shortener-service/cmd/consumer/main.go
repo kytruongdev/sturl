@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"time"
 
 	"github.com/kytruongdev/sturl/url-shortener-service/internal/config"
 	shortUrlCtrl "github.com/kytruongdev/sturl/url-shortener-service/internal/controller/shorturl"
@@ -50,8 +51,7 @@ func main() {
 
 	consumer := New(globalCfg.KafkaCfg, shortURLCtrl, kafkaProducer)
 
-	appRunner := app.Runner{Name: globalCfg.KafkaCfg.ClientID + "-consumer"}
-	if err := appRunner.Run(rootCtx, runner{consumer: consumer}); err != nil {
+	if err := app.New(globalCfg.KafkaCfg.ClientID+"-consumer").Run(rootCtx, runner{consumer: consumer}); err != nil {
 		monitoring.Log(rootCtx).Error().Err(err).Msg("consumer exited with error")
 	}
 }
@@ -66,9 +66,25 @@ func initDB(cfg config.GlobalConfig) *sql.DB {
 }
 
 func initRedis(ctx context.Context, cfg config.GlobalConfig) redisRepo.RedisClient {
+	const (
+		selectedDB   = 0
+		dialTimeout  = 5 * time.Second
+		readTimeout  = 3 * time.Second
+		writeTimeout = 3 * time.Second
+		poolSize     = 10
+		minIdleConns = 5
+		maxRetries   = 3
+	)
+
 	redisClient, err := redisRepo.NewRedisClient(ctx, &redis.Options{
-		Addr: cfg.ServerCfg.RedisAddr,
-		DB:   0,
+		Addr:         cfg.ServerCfg.RedisAddr,
+		DB:           selectedDB,
+		DialTimeout:  dialTimeout,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		PoolSize:     poolSize,
+		MinIdleConns: minIdleConns,
+		MaxRetries:   maxRetries,
 	})
 
 	if err != nil {

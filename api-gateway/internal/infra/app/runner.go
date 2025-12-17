@@ -16,17 +16,24 @@ type Service interface {
 	Shutdown(context.Context) error
 }
 
-// Runner coordinates the application lifecycle: receives context from main,
+// runner coordinates the application lifecycle: receives context from main,
 // listens for signals, and calls Run and Shutdown.
-type Runner struct {
+type runner struct {
 	Name string // optional, can be used for logging later
 }
 
-// Start runs the service with:
+// New creates and returns a new runner instance with the provided service name.
+func New(name string) runner {
+	return runner{
+		Name: name,
+	}
+}
+
+// Run runs the service with:
 // - ctx from main (does not create Background context)
 // - signal.Notify to handle SIGINT/SIGTERM
 // - graceful shutdown with 5s timeout
-func (r Runner) Start(ctx context.Context, svc Service) error {
+func (r runner) Run(ctx context.Context, svc Service) error {
 	// Wrap the original context from main with signal handling
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
